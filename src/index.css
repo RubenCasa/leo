@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@import "./styles/fonts.css";
+@import "./styles/theme.css";
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  --body-background: #ffffff;
+  --body-color: #000000;
+  --accent-color: #15733d;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--body-background);
+  color: var(--body-color);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  cursor: default;
+}
+
+/* Font family utilities */
+.font-display {
+  font-family: 'Archivo Black', system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.font-serif-editorial {
+  font-family: 'Georgia', 'Playfair Display', serif;
+}
+
+.font-body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}

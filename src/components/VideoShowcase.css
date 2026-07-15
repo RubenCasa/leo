@@ -1,0 +1,313 @@
+/* ==========================================================================
+   VIDEO SHOWCASE PREMIUM — LÁCTEOS LEO
+   ========================================================================== */
+
+.video-showcase-section {
+  position: relative;
+  width: 100%;
+  background: linear-gradient(155deg, #0b301c 0%, #062012 55%, #03130a 100%);
+  color: #ffffff;
+  padding: 100px 6vw 115px 6vw;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Luz ambiental posterior */
+.showcase-ambient-glow {
+  position: absolute;
+  top: 30%;
+  left: 20%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(250, 204, 21, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+  filter: blur(50px);
+  pointer-events: none;
+}
+
+/* Curvas superior e inferior */
+.showcase-curve-top {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 100%;
+  height: 50px;
+  overflow: hidden;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.showcase-curve-top svg {
+  width: 100%;
+  height: 100%;
+}
+
+.showcase-curve-bottom {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 50px;
+  overflow: hidden;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.showcase-curve-bottom svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Contenedor Principal en 2 Columnas */
+.video-showcase-container {
+  max-width: 1380px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.05fr 1.15fr;
+  gap: 60px;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+
+/* ---- COLUMNA IZQUIERDA: VIDEO CINEMATOGRÁFICO ---- */
+.video-showcase-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.video-header-meta {
+  display: flex;
+  align-items: center;
+}
+
+.video-pill-tag {
+  background: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+  border: 1px solid #facc15;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.luxury-video-frame {
+  position: relative;
+  width: 100%;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #000000;
+  border: 2px solid rgba(250, 204, 21, 0.45);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 35px rgba(16, 185, 129, 0.2);
+  transition: transform 0.35s ease, border-color 0.35s ease;
+}
+
+.luxury-video-frame:hover {
+  transform: translateY(-4px);
+  border-color: #facc15;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.65), 0 0 45px rgba(250, 204, 21, 0.25);
+}
+
+.showcase-video-player {
+  width: 100%;
+  max-height: 440px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+}
+
+.video-live-badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+}
+
+.video-caption {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #cbd5e1;
+  margin: 0;
+  padding: 0 6px;
+}
+
+/* ---- COLUMNA DERECHA: PILARES & CATÁLOGO ---- */
+.video-showcase-right {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.showcase-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.showcase-subhead {
+  font-size: 14px;
+  color: #facc15;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.showcase-main-title {
+  font-size: 34px;
+  line-height: 1.16;
+  color: #ffffff;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Pila de Tarjetas Elegantes */
+.showcase-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.showcase-card-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 22px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.showcase-card-item:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: #facc15;
+  transform: translateX(6px);
+}
+
+.card-icon-gold {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: #facc15;
+  color: #0b301c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(250, 204, 21, 0.35);
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-title {
+  font-size: 19px;
+  color: #fef08a;
+  margin: 0;
+}
+
+.card-desc {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+/* Botón CTA */
+.showcase-cta-box {
+  margin-top: 6px;
+}
+
+.btn-luxury-catalog {
+  display: inline-block;
+  background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+  color: #052313;
+  padding: 18px 28px;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 900;
+  text-decoration: none;
+  letter-spacing: 0.03em;
+  box-shadow: 0 8px 22px rgba(250, 204, 21, 0.38);
+  transition: all 0.3s ease;
+}
+
+.btn-luxury-catalog:hover {
+  transform: translateY(-3px);
+  background: linear-gradient(135deg, #fde047 0%, #facc15 100%);
+  box-shadow: 0 12px 30px rgba(250, 204, 21, 0.55);
+  color: #000000;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .video-showcase-container {
+    grid-template-columns: 1fr;
+    gap: 45px;
+  }
+
+  .showcase-main-title {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 640px) {
+  .video-showcase-section {
+    padding: 70px 20px 80px 20px;
+  }
+
+  .showcase-main-title {
+    font-size: 25px;
+  }
+
+  .showcase-card-item {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .card-icon-gold {
+    width: 44px;
+    height: 44px;
+    font-size: 22px;
+  }
+
+  .card-title {
+    font-size: 17px;
+  }
+
+  .card-desc {
+    font-size: 13.5px;
+  }
+
+  .btn-luxury-catalog {
+    display: block;
+    text-align: center;
+    padding: 16px 20px;
+  }
+}

@@ -1,0 +1,695 @@
+/* ==========================================
+   CHECKOUT & PAGOS SEGUROS - LÁCTEOS LEO
+   Pasarela Kushki / Payphone Ecuador (EMVCo 3DS2)
+   ========================================== */
+
+.checkout-page {
+  padding: 130px 6vw 140px;
+  min-height: calc(100vh - 80px);
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.checkout-page.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.checkout-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 36px;
+}
+
+.checkout-form-section, .checkout-summary-section {
+  background: #ffffff;
+  padding: 38px;
+  border-radius: 22px;
+  border: 1.5px solid #e2ece3;
+  box-shadow: 0 12px 35px rgba(46, 125, 50, 0.05);
+}
+
+.checkout-secure-badge-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1.5px solid #a5d6a7;
+  border-radius: 50px;
+  font-size: 12.5px;
+  font-weight: 800;
+  margin-bottom: 22px;
+}
+
+.checkout-form-section h2, .checkout-summary-section h2 {
+  margin-bottom: 24px;
+  color: #1b5e20;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 13.5px;
+  color: #1b5e20;
+  font-weight: 700;
+}
+
+.form-group input,
+.secure-select-input {
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  width: 100%;
+}
+
+.form-group input:focus,
+.secure-select-input:focus {
+  outline: none;
+  border-color: #2e7d32;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.15);
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 16px;
+  color: #2e7d32;
+  pointer-events: none;
+}
+
+.input-with-icon input {
+  padding-left: 46px !important;
+}
+
+.input-with-icon.right .input-icon-right {
+  position: absolute;
+  right: 16px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* SECCIÓN PASARELA DE PAGOS ECUADOR */
+.payment-gateway-section {
+  margin-top: 10px;
+  padding: 26px;
+  background: #fcfefc;
+  border: 1.5px solid #c8e6c9;
+  border-radius: 18px;
+}
+
+.payment-section-title {
+  font-size: 19px;
+  color: #1a2e1a;
+  font-weight: 800;
+  margin-bottom: 18px;
+}
+
+.gateway-selector-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.gateway-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.gateway-tab.active {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+  color: #1b5e20;
+  box-shadow: 0 4px 14px rgba(46, 125, 50, 0.12);
+}
+
+.gateway-provider-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.provider-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.provider-options {
+  display: flex;
+  gap: 10px;
+}
+
+.provider-pill {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1.5px solid #cbd5e1;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.provider-pill.active {
+  background: #1b5e20;
+  color: #ffffff;
+  border-color: #1b5e20;
+}
+
+.card-brand-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.card-badge-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.secure-card-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.pci-dss-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+  background: #e8f5e9;
+  border: 1.5px solid #a5d6a7;
+  border-radius: 14px;
+  margin-top: 6px;
+}
+
+.pci-icon {
+  color: #2e7d32;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.pci-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #1b5e20;
+  line-height: 1.5;
+}
+
+/* TRANSFERENCIA DIRECTA */
+.bank-transfer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.transfer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #1b5e20;
+}
+
+.transfer-header h4 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.transfer-header p {
+  font-size: 13px;
+  color: #475569;
+  margin: 0;
+}
+
+.bank-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+}
+
+.bank-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.transfer-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #2e7d32;
+  font-weight: 600;
+  padding: 12px;
+  background: #f1f8f2;
+  border-radius: 10px;
+}
+
+/* BOTÓN DE ENVIAR PAGO */
+.checkout-submit-btn, .return-btn {
+  margin-top: 14px;
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+  color: #ffffff;
+  border: none;
+  padding: 18px 28px;
+  font-size: 16.5px;
+  font-weight: 800;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(46, 125, 50, 0.28);
+}
+
+.checkout-submit-btn:hover, .return-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(46, 125, 50, 0.42);
+}
+
+/* Resumen del Pedido */
+.summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1.5px solid #e2ece3;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  color: #475569;
+  font-weight: 600;
+}
+
+.grand-total {
+  color: #1b5e20;
+  font-size: 26px;
+  font-weight: 900;
+  margin-top: 10px;
+  padding-top: 18px;
+  border-top: 1.5px solid #e2ece3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.checkout-trust-badges {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1.5px solid #e2ece3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+/* ==========================================
+   MODAL DE RETO EMVCo 3D SECURE 2.0 (3DS2)
+   ========================================== */
+.secure-payment-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.emvco-3ds-modal {
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 38px 36px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 28px 65px rgba(0, 0, 0, 0.4);
+  border: 2px solid #81c784;
+  animation: modalScaleUp 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.emvco-header {
+  text-align: center;
+  border-bottom: 1.5px solid #e2ece3;
+  padding-bottom: 18px;
+}
+
+.emvco-header-badges {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.emvco-seal-pill {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: #1b5e20;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+}
+
+.emvco-seal-pill.brand {
+  background: #1e3a8a;
+}
+
+.emvco-header h3 {
+  font-size: 22px;
+  color: #1b5e20;
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.emvco-subtitle {
+  font-size: 13.5px;
+  color: #475569;
+}
+
+.emvco-transaction-summary {
+  background: #f8fbf8;
+  border: 1.5px solid #c8e6c9;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emvco-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #475569;
+}
+
+.emvco-row strong {
+  color: #0f172a;
+}
+
+.emvco-amount {
+  color: #1b5e20 !important;
+  font-size: 16px;
+}
+
+.emvco-tabs {
+  display: flex;
+  gap: 12px;
+}
+
+.emvco-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.emvco-tab.active {
+  background: #e8f5e9;
+  border-color: #2e7d32;
+  color: #1b5e20;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.1);
+}
+
+.emvco-challenge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.emvco-info-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f1f8f2;
+  border: 1px solid #81c784;
+  color: #1b5e20;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.emvco-otp-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.emvco-otp-input {
+  width: 220px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  padding: 14px 18px;
+  border: 2px solid #2e7d32;
+  border-radius: 14px;
+  color: #1b5e20;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(46, 125, 50, 0.12);
+}
+
+.emvco-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.emvco-btn-verify {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 15.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.3);
+}
+
+.emvco-btn-simulate {
+  width: 100%;
+  padding: 12px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.emvco-btn-simulate:hover {
+  background: #e2e8f0;
+}
+
+.emvco-biometric-box {
+  text-align: center;
+  padding: 24px;
+  background: #f8fbf8;
+  border: 1.5px solid #c8e6c9;
+  border-radius: 16px;
+}
+
+.emvco-fingerprint-icon {
+  color: #2e7d32;
+  margin-bottom: 12px;
+}
+
+/* MODAL DE PROCESAMIENTO GENERAL */
+.secure-payment-modal {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 42px 38px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: modalScaleUp 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.payment-modal-icon {
+  margin-bottom: 20px;
+  color: #2e7d32;
+}
+
+.payment-modal-icon.spinning {
+  animation: spin 1.4s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.payment-modal-icon.success {
+  color: #16a34a;
+}
+
+.secure-payment-modal h3 {
+  font-size: 23px;
+  color: #1b5e20;
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+
+.payment-modal-text {
+  font-size: 15px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.payment-security-footer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #e8f5e9;
+  color: #1b5e20;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 700;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .checkout-container {
+    grid-template-columns: 1fr;
+  }
+  .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+}

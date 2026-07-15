@@ -1,0 +1,307 @@
+/* ==========================================================================
+   El Ranchito Inspired Navbar Styling
+   ========================================================================== */
+.elranchito-navbar {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+.navbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 5vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+/* Logo Left */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo-img {
+  height: 58px;
+  width: auto;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.brand-logo-img:hover {
+  transform: scale(1.04);
+}
+
+/* Desktop Navigation Menu */
+.desktop-menu {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.menu-link {
+  color: #111111;
+  text-decoration: none;
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+  padding: 6px 0;
+  position: relative;
+  transition: color 0.25s ease;
+}
+
+.menu-link:hover,
+.menu-link.active {
+  color: #15733d;
+}
+
+.menu-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  height: 3px;
+  background-color: #15733d;
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.menu-link:hover::after,
+.menu-link.active::after {
+  width: 100%;
+}
+
+/* Right Actions (Cart Block) */
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-cart-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #111111;
+  background: #f8f8f8;
+  border: 1px solid #e2e2e2;
+  padding: 8px 16px 8px 10px;
+  border-radius: 50px;
+  transition: all 0.25s ease;
+}
+
+.navbar-cart-btn:hover {
+  background: #ffffff;
+  border-color: #15733d;
+  box-shadow: 0 5px 15px rgba(21, 115, 61, 0.15);
+}
+
+.cart-icon-circle {
+  width: 36px;
+  height: 36px;
+  background: #15733d;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cart-badge-num {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+}
+
+.cart-total-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.cart-label {
+  font-size: 11px;
+  color: #777;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.cart-money {
+  font-size: 14px;
+  color: #111;
+}
+
+/* Mobile Toggle Button */
+.hamburger-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.hamburger-toggle span {
+  width: 25px;
+  height: 3px;
+  background: #111;
+  border-radius: 3px;
+  transition: 0.3s ease;
+}
+
+/* Mobile Dropdown */
+.mobile-dropdown {
+  display: none;
+  flex-direction: column;
+  background: #ffffff;
+  border-top: 1px solid #eee;
+  padding: 20px 5vw;
+  gap: 15px;
+}
+
+.mobile-dropdown a {
+  color: #111;
+  text-decoration: none;
+  font-size: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.mobile-cart-highlight {
+  color: #15733d !important;
+  font-weight: 800;
+}
+
+@media (max-width: 950px) {
+  .desktop-menu {
+    display: none;
+  }
+  .hamburger-toggle {
+    display: flex;
+  }
+  .mobile-dropdown {
+    display: flex;
+  }
+}
+
+/* ==========================================================================
+   Auth Buttons & User Pill in Navbar
+   ========================================================================== */
+.auth-nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-btn-login {
+  background: transparent;
+  border: 1.5px solid #15733d;
+  color: #15733d;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.nav-btn-login:hover {
+  background: rgba(21, 115, 61, 0.08);
+}
+
+.nav-btn-register {
+  background: #15733d;
+  border: 1.5px solid #15733d;
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(21, 115, 61, 0.25);
+  transition: all 0.25s ease;
+}
+
+.nav-btn-register:hover {
+  background: #0f582d;
+  border-color: #0f582d;
+  transform: translateY(-2px);
+}
+
+.user-cart-block {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f4f8f5;
+  border: 1px solid rgba(21, 115, 61, 0.25);
+  color: #15733d;
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.user-logout-btn {
+  background: none;
+  border: none;
+  color: #d11218;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  margin-left: 4px;
+}
+
+.mobile-auth-buttons {
+  display: flex;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.mobile-user-greeting {
+  font-size: 13px;
+  color: #15733d;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.mobile-logout-link {
+  background: none;
+  border: none;
+  color: #d11218;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
