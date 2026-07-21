@@ -57,6 +57,27 @@ const isAdminEmail = (email: string): boolean => {
   return email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 };
 
+// Helper: Verificar si el usuario realmente se ha registrado en Lácteos Leo (tabla usuarios o correos en localStorage)
+const checkUserExistsInDatabase = async (userId: string, email: string): Promise<boolean> => {
+  if (isAdminEmail(email)) return true;
+
+  try {
+    const { data } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (data?.id) return true;
+  } catch (e) {
+    console.warn('Error verificando existencia del usuario:', e);
+  }
+
+  const raw = localStorage.getItem('lacteos_leo_registered_emails');
+  const emails: string[] = raw ? JSON.parse(raw) : [];
+  return emails.includes(email.toLowerCase());
+};
+
 // Helper para obtener el rol del usuario desde Supabase
 const fetchUserRole = async (userId: string): Promise<{ role: UserRole; rolId: number; cedula?: string }> => {
   try {
@@ -194,42 +215,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const handleSessionUser = async (sessionUser: { id?: string; email?: string; user_metadata?: Record<string, string>; app_metadata?: Record<string, string> }) => {
       const email = (sessionUser.email || '').toLowerCase();
-      if (!email) return;
+      if (!email || !sessionUser.id) return;
 
       const intent = localStorage.getItem('lacteos_leo_google_intent');
       localStorage.removeItem('lacteos_leo_google_intent');
 
-      // Siempre sincronizar el email en localStorage
-      saveRegisteredEmail(email);
-
-      // Crear/actualizar el usuario en la tabla usuarios de Supabase
-      const userObj = await buildUserFromSession(sessionUser);
-      if (sessionUser.id) {
+      // CASO 1: El usuario dio clic en "Registrarse con Google"
+      if (intent === 'register') {
+        saveRegisteredEmail(email);
+        const userObj = await buildUserFromSession(sessionUser);
         await upsertUsuario(sessionUser.id, userObj.name, email);
-        // Re-fetch del rol por si acaba de ser promovido a admin
         if (isAdminEmail(email)) {
           userObj.role = 'administrador';
           userObj.rolId = 1;
         }
-      }
-
-      // CASO 1: El usuario dio clic en "Registrarse con Google"
-      if (intent === 'register') {
         setUser(userObj);
         setIsAuthModalOpen(false);
         return;
       }
 
       // CASO 2: El usuario dio clic en "Ingresar con Google" (LOGIN)
-      // Ya no bloqueamos por localStorage — si Supabase lo autenticó, es válido
       if (intent === 'login') {
+        const existe = await checkUserExistsInDatabase(sessionUser.id, email);
+        if (!existe) {
+          try { await supabase.auth.signOut(); } catch { /* silenciar */ }
+          setUser(null);
+          setAuthError(`❌ No existe una cuenta registrada en Lácteos Leo con el correo (${email}). Por favor, cambia a la pestaña "Registrarse" para crear tu cuenta o regístrate con Google.`);
+          setAuthModalMode('register');
+          setIsAuthModalOpen(true);
+          return;
+        }
+
+        saveRegisteredEmail(email);
+        const userObj = await buildUserFromSession(sessionUser);
+        await upsertUsuario(sessionUser.id, userObj.name, email);
+        if (isAdminEmail(email)) {
+          userObj.role = 'administrador';
+          userObj.rolId = 1;
+        }
         setUser(userObj);
         setIsAuthModalOpen(false);
         return;
       }
 
-      // CASO 3: Recarga de página normal (sin intent explícito)
-      if (sessionUser.id) {
+      // CASO 3: Recarga de página normal (sin intent explícito en progreso)
+      const existe = await checkUserExistsInDatabase(sessionUser.id, email);
+      if (existe) {
+        saveRegisteredEmail(email);
+        const userObj = await buildUserFromSession(sessionUser);
+        await upsertUsuario(sessionUser.id, userObj.name, email);
+        if (isAdminEmail(email)) {
+          userObj.role = 'administrador';
+          userObj.rolId = 1;
+        }
         setUser(userObj);
       } else {
         try { await supabase.auth.signOut(); } catch { /* silenciar */ }
@@ -346,26 +384,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // ============================================================
   // INICIAR SESIÓN con correo y contraseña
-  // YA NO depende de localStorage — va directo a Supabase
   // ============================================================
   const login = async (email: string, password: string): Promise<boolean> => {
     setAuthError('');
     setAuthSuccess('');
     try {
-      // Intentar login directamente con Supabase (sin verificar localStorage)
       const data = await signInWithEmail(email, password);
-      if (data.user) {
-        // Sincronizar email en localStorage
-        saveRegisteredEmail(email);
+      if (data.user && data.user.id) {
+        // Verificar que el usuario realmente esté registrado en Lácteos Leo
+        const existe = await checkUserExistsInDatabase(data.user.id, email);
+        if (!existe) {
+          try { await supabase.auth.signOut(); } catch { /* silenciar */ }
+          setAuthError(`❌ No existe una cuenta registrada en Lácteos Leo con el correo (${email}). Por favor, cambia a la pestaña "Registrarse" para crear tu cuenta.`);
+          return false;
+        }
 
+        saveRegisteredEmail(email);
         const userObj = await buildUserFromSession(data.user);
-        if (data.user.id) {
-          await upsertUsuario(data.user.id, userObj.name, email);
-          // Si es admin, forzar rol
-          if (isAdminEmail(email)) {
-            userObj.role = 'administrador';
-            userObj.rolId = 1;
-          }
+        await upsertUsuario(data.user.id, userObj.name, email);
+        if (isAdminEmail(email)) {
+          userObj.role = 'administrador';
+          userObj.rolId = 1;
         }
         setUser(userObj);
         setIsAuthModalOpen(false);

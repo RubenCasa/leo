@@ -65,7 +65,7 @@ export const AuthModal: React.FC = () => {
 
   if (!isAuthModalOpen) return null;
 
-  const displayError = localError;
+  const displayError = localError || authError;
   const displaySuccess = authSuccess;
 
   const handleStandardSubmit = async (e: React.FormEvent) => {
@@ -116,6 +116,7 @@ export const AuthModal: React.FC = () => {
   const switchTab = (mode: 'login' | 'register') => {
     openAuthModal(mode);
     setLocalError('');
+    clearAuthError();
     setCedulaError('');
     setCedulaProvincia('');
     clearAuthSuccess();
