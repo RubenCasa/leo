@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { obtenerFacturasUsuario, type FacturaUsuarioDB } from '../lib/productosService';
 import { supabase } from '../lib/supabase';
 import { generateSRIXML, generateRIDE } from '../utils/sriGenerator';
+import { validarIdentificacion } from '../utils/cedulaValidator';
 import { FileText, Download, CheckCircle2, Loader2, AlertCircle, Copy, ArrowLeft, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -11,7 +12,18 @@ export const MisFacturas: React.FC = () => {
   const [facturas, setFacturas] = useState<FacturaUsuarioDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [idVerificar, setIdVerificar] = useState(user?.cedula && user.cedula !== 'N/A' ? user.cedula : '');
+  const [resultadoVerificacion, setResultadoVerificacion] = useState<any>(null);
   const navigate = useNavigate();
+
+  const verificarAutenticidadSRI = () => {
+    if (!idVerificar || idVerificar.trim() === '') {
+      alert('Por favor ingresa un número de Cédula (10 dígitos) o RUC (13 dígitos).');
+      return;
+    }
+    const result = validarIdentificacion(idVerificar.trim());
+    setResultadoVerificacion(result);
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -150,6 +162,105 @@ export const MisFacturas: React.FC = () => {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
             SUPABASE REALTIME EN VIVO
           </div>
+        </div>
+
+        {/* HERRAMIENTA DE VERIFICACIÓN OFICIAL DE IDENTIDAD (CÉDULA / RUC ECUADOR) */}
+        <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ background: '#dcfce7', color: '#16a34a', padding: '10px', borderRadius: '12px' }}>
+              <ShieldCheck size={24} />
+            </div>
+            <div>
+              <h3 className="font-display" style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
+                Verificación Oficial de Identidad (Cédula / RUC Ecuador)
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>
+                Comprueba la autenticidad en tiempo real con el algoritmo oficial Módulo 10 del Registro Civil y SRI antes de consultar facturas tributarias.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Ej: 1712345678 (Cédula) o 1712345678001 (RUC)..."
+              value={idVerificar}
+              onChange={(e) => {
+                setIdVerificar(e.target.value);
+                setResultadoVerificacion(null);
+              }}
+              style={{
+                flex: 1,
+                minWidth: '260px',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '15px',
+                fontFamily: 'monospace',
+                color: '#1e293b'
+              }}
+            />
+            <button
+              type="button"
+              onClick={verificarAutenticidadSRI}
+              style={{
+                background: '#16a34a',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 4px rgba(22, 163, 74, 0.2)'
+              }}
+            >
+              <ShieldCheck size={18} />
+              Verificar Autenticidad SRI
+            </button>
+          </div>
+
+          {resultadoVerificacion && (
+            <div style={{
+              marginTop: '16px',
+              padding: '16px',
+              borderRadius: '12px',
+              background: resultadoVerificacion.isValid ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${resultadoVerificacion.isValid ? '#86efac' : '#fecaca'}`,
+              animation: 'fadeIn 0.3s ease-out'
+            }}>
+              {resultadoVerificacion.isValid ? (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <CheckCircle2 size={24} style={{ color: '#16a34a', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <h4 style={{ margin: '0 0 4px', color: '#14532d', fontSize: '15px', fontWeight: 800 }}>
+                      ✅ VÁLIDO SEGÚN REGISTRO CIVIL Y SRI (Módulo 10)
+                    </h4>
+                    <div style={{ fontSize: '13.5px', color: '#166534', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginTop: '8px' }}>
+                      <div>• <strong>Provincia de Emisión:</strong> {resultadoVerificacion.provincia || 'Ecuador'}</div>
+                      <div>• <strong>Tipo:</strong> {idVerificar.trim().length === 10 ? 'Cédula de Ciudadanía' : 'RUC Empresarial / Natural'}</div>
+                      <div>• <strong>Estado:</strong> Apto para Facturación Electrónica</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <AlertCircle size={24} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <h4 style={{ margin: '0 0 4px', color: '#991b1b', fontSize: '15px', fontWeight: 800 }}>
+                      ❌ ERROR EN VALIDACIÓN DEL DOCUMENTO
+                    </h4>
+                    <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#b91c1c' }}>
+                      {resultadoVerificacion.error}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content Section */}

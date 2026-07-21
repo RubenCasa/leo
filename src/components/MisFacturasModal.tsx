@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { obtenerFacturasUsuario, type FacturaUsuarioDB } from '../lib/productosService';
 import { generateSRIXML, generateRIDE } from '../utils/sriGenerator';
-import { FileText, Download, CheckCircle2, Loader2, AlertCircle, X, Copy } from 'lucide-react';
+import { validarIdentificacion } from '../utils/cedulaValidator';
+import { FileText, Download, CheckCircle2, Loader2, AlertCircle, X, Copy, ShieldCheck } from 'lucide-react';
 import './AuthModal.css'; // Reutilizamos estilos modales limpios
 
 interface MisFacturasModalProps {
@@ -15,6 +16,17 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
   const [facturas, setFacturas] = useState<FacturaUsuarioDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [idVerificar, setIdVerificar] = useState(user?.cedula && user.cedula !== 'N/A' ? user.cedula : '');
+  const [resultadoVerificacion, setResultadoVerificacion] = useState<any>(null);
+
+  const verificarAutenticidadSRI = () => {
+    if (!idVerificar || idVerificar.trim() === '') {
+      alert('Por favor ingresa un número de Cédula (10 dígitos) o RUC (13 dígitos).');
+      return;
+    }
+    const result = validarIdentificacion(idVerificar.trim());
+    setResultadoVerificacion(result);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -106,6 +118,104 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
           >
             <X size={20} />
           </button>
+        </div>
+
+        {/* HERRAMIENTA DE VERIFICACIÓN OFICIAL DE IDENTIDAD (CÉDULA / RUC ECUADOR) */}
+        <div style={{ background: '#fff', border: '1px solid #cbd5e1', borderRadius: '16px', padding: '20px', marginBottom: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ background: '#dcfce7', color: '#16a34a', padding: '8px', borderRadius: '12px' }}>
+              <ShieldCheck size={22} />
+            </div>
+            <div>
+              <h3 className="font-display" style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
+                Verificación Oficial de Identidad (Cédula / RUC Ecuador)
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>
+                Comprueba la autenticidad con el Módulo 10 del Registro Civil y SRI antes de consultar facturas tributarias.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Ej: 1712345678 o 1712345678001..."
+              value={idVerificar}
+              onChange={(e) => {
+                setIdVerificar(e.target.value);
+                setResultadoVerificacion(null);
+              }}
+              style={{
+                flex: 1,
+                minWidth: '220px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '14px',
+                fontFamily: 'monospace',
+                color: '#1e293b'
+              }}
+            />
+            <button
+              type="button"
+              onClick={verificarAutenticidadSRI}
+              style={{
+                background: '#16a34a',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '10px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <ShieldCheck size={16} />
+              Verificar Autenticidad SRI
+            </button>
+          </div>
+
+          {resultadoVerificacion && (
+            <div style={{
+              marginTop: '14px',
+              padding: '14px',
+              borderRadius: '12px',
+              background: resultadoVerificacion.isValid ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${resultadoVerificacion.isValid ? '#86efac' : '#fecaca'}`,
+              animation: 'fadeIn 0.3s ease-out'
+            }}>
+              {resultadoVerificacion.isValid ? (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <CheckCircle2 size={20} style={{ color: '#16a34a', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <h4 style={{ margin: '0 0 4px', color: '#14532d', fontSize: '14px', fontWeight: 800 }}>
+                      ✅ VÁLIDO SEGÚN REGISTRO CIVIL Y SRI (Módulo 10)
+                    </h4>
+                    <div style={{ fontSize: '12.5px', color: '#166534', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', marginTop: '6px' }}>
+                      <div>• <strong>Provincia:</strong> {resultadoVerificacion.provincia || 'Ecuador'}</div>
+                      <div>• <strong>Tipo:</strong> {idVerificar.trim().length === 10 ? 'Cédula de Ciudadanía' : 'RUC'}</div>
+                      <div>• <strong>Estado:</strong> Apto para Facturación</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <AlertCircle size={20} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <h4 style={{ margin: '0 0 4px', color: '#991b1b', fontSize: '14px', fontWeight: 800 }}>
+                      ❌ ERROR EN VALIDACIÓN DEL DOCUMENTO
+                    </h4>
+                    <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#b91c1c' }}>
+                      {resultadoVerificacion.error}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {loading ? (

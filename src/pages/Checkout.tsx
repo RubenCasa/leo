@@ -5,6 +5,7 @@ import { generateSRIXML, generateRIDE, generarClaveYSecuencialUnicos } from '../
 import { sendComprobanteEmailViaSupabase, supabase, type OrderComprobante } from '../lib/supabase';
 import { crearPedidoCompleto, guardarComprobanteSRI } from '../lib/productosService';
 import { checkRateLimit, resetRateLimit, sanitizeInput } from '../utils/security';
+import { validarIdentificacion } from '../utils/cedulaValidator';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
@@ -140,6 +141,16 @@ export const Checkout: React.FC = () => {
     if (!rateCheck.allowed) {
       alert(`❌ Demasiados intentos de pago. Por protección anti-fraude y bloqueo de tarjeta, espera ${rateCheck.remainingSeconds} segundos antes de volver a intentar.`);
       return;
+    }
+
+    // Validación oficial SRI / Registro Civil de Cédula o RUC
+    const idClean = formData.idNumber.trim();
+    if (idClean && idClean !== '9999999999999' && idClean !== '9999999999') {
+      const idVal = validarIdentificacion(idClean);
+      if (!idVal.isValid) {
+        alert(`❌ Verificación SRI de Identidad Fallida:\n\nEl número ingresado "${idClean}" no supera el algoritmo oficial Módulo 10 del Registro Civil y SRI (${idVal.error}).\n\nPor favor corrige tu Cédula (10 dígitos) o RUC (13 dígitos) o ingresa "9999999999999" para Consumidor Final.`);
+        return;
+      }
     }
 
     // Validación de tarjeta si el método es tarjeta
@@ -525,10 +536,32 @@ export const Checkout: React.FC = () => {
                   type="text"
                   name="idNumber"
                   required
-                  placeholder="Ej. 1712345678"
+                  placeholder="Ej. 1712345678 o 0591728391001"
                   value={formData.idNumber}
                   onChange={handleInputChange}
+                  style={{
+                    borderColor: formData.idNumber.trim()
+                      ? validarIdentificacion(formData.idNumber.trim()).isValid || formData.idNumber.trim() === '9999999999999' || formData.idNumber.trim() === '9999999999'
+                        ? '#16a34a'
+                        : '#ef4444'
+                      : undefined
+                  }}
                 />
+                {formData.idNumber.trim() && (
+                  <div style={{ fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
+                    {formData.idNumber.trim() === '9999999999999' || formData.idNumber.trim() === '9999999999' ? (
+                      <span style={{ color: '#16a34a' }}>✅ Consumidor Final (Autorizado SRI)</span>
+                    ) : validarIdentificacion(formData.idNumber.trim()).isValid ? (
+                      <span style={{ color: '#16a34a' }}>
+                        ✅ {validarIdentificacion(formData.idNumber.trim()).provincia || 'Ecuador'} • Cédula/RUC Verificado Módulo 10 SRI
+                      </span>
+                    ) : (
+                      <span style={{ color: '#ef4444' }}>
+                        ❌ {validarIdentificacion(formData.idNumber.trim()).error || 'Cédula o RUC inválido según SRI'}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
