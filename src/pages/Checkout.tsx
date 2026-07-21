@@ -233,6 +233,7 @@ export const Checkout: React.FC = () => {
       orderNumber,
       customerName: formData.name,
       customerEmail: formData.email,
+      userId: user?.id,
       items: items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price })),
       totalAmount: total,
       date: new Date().toISOString(),

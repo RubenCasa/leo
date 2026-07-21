@@ -483,62 +483,101 @@ export interface FacturaUsuarioDB {
 }
 
 /**
- * Obtiene el registro e historial de facturas SRI de un usuario desde Supabase y localStorage (híbrido).
+ * Obtiene el registro e historial de facturas SRI respetando el rol:
+ * - Administrador y Vendedor: ven TODAS las facturas de todos los clientes.
+ * - Cliente normal: ve ÚNICAMENTE las facturas correspondientes a sus pedidos (por usuarioId o email).
  */
-export const obtenerFacturasUsuario = async (usuarioId?: string): Promise<FacturaUsuarioDB[]> => {
+export const obtenerFacturasUsuario = async (
+  usuarioId?: string,
+  userRole?: string,
+  userEmail?: string
+): Promise<FacturaUsuarioDB[]> => {
   const facturasCombinadas: FacturaUsuarioDB[] = [];
   const clavesVistas = new Set<string>();
   const pedidosVistos = new Set<string>();
 
-  // 1. Intentar obtener de Supabase si el usuario ha iniciado sesión
-  if (usuarioId) {
-    try {
-      const { data: pedidosUsuario, error: pedidosError } = await supabase
+  const esStaff = userRole === 'administrador' || userRole === 'vendedor';
+
+  // 1. Obtener de Supabase (filtrado según rol)
+  try {
+    let pedidosUsuario: any[] | null = null;
+
+    if (esStaff) {
+      // El administrador o el vendedor pueden ver la totalidad de los pedidos y facturas de los clientes
+      const { data, error } = await supabase
         .from('pedidos')
-        .select('id, numero_pedido, total, metodo_pago, created_at')
-        .eq('usuario_id', usuarioId)
+        .select('id, numero_pedido, total, metodo_pago, created_at, usuario_id')
+        .order('created_at', { ascending: false });
+      if (!error) pedidosUsuario = data;
+    } else if (usuarioId || userEmail) {
+      // El usuario normal SOLO puede ver lo que ese usuario compró
+      let query = supabase
+        .from('pedidos')
+        .select('id, numero_pedido, total, metodo_pago, created_at, usuario_id');
+
+      if (usuarioId && userEmail) {
+        query = query.or(`usuario_id.eq.${usuarioId},email_cliente.ilike.${userEmail}`);
+      } else if (usuarioId) {
+        query = query.eq('usuario_id', usuarioId);
+      } else if (userEmail) {
+        query = query.ilike('email_cliente', userEmail);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (!error) pedidosUsuario = data;
+    }
+
+    if (pedidosUsuario && pedidosUsuario.length > 0) {
+      const pedidoIds = pedidosUsuario.map(p => p.id);
+      const { data: comprobantes } = await supabase
+        .from('comprobantes_sri')
+        .select('*')
+        .in('pedido_id', pedidoIds)
         .order('created_at', { ascending: false });
 
-      if (!pedidosError && pedidosUsuario && pedidosUsuario.length > 0) {
-        const pedidoIds = pedidosUsuario.map(p => p.id);
-        const { data: comprobantes } = await supabase
-          .from('comprobantes_sri')
-          .select('*')
-          .in('pedido_id', pedidoIds)
-          .order('created_at', { ascending: false });
-
-        if (comprobantes) {
-          comprobantes.forEach(comp => {
-            const pedido = pedidosUsuario.find(p => p.id === comp.pedido_id);
-            const clave = comp.clave_acceso || `LOCAL-${comp.id}`;
-            const numPedido = pedido?.numero_pedido || `FAC-${comp.id}`;
-            if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
-              clavesVistas.add(clave);
-              pedidosVistos.add(numPedido);
-              facturasCombinadas.push({
-                ...comp,
-                pedidos: pedido ? {
-                  numero_pedido: pedido.numero_pedido,
-                  total: Number(pedido.total),
-                  metodo_pago: pedido.metodo_pago || 'card',
-                  created_at: pedido.created_at
-                } : undefined
-              });
-            }
-          });
-        }
+      if (comprobantes) {
+        comprobantes.forEach(comp => {
+          const pedido = pedidosUsuario?.find(p => p.id === comp.pedido_id);
+          const clave = comp.clave_acceso || `LOCAL-${comp.id}`;
+          const numPedido = pedido?.numero_pedido || `FAC-${comp.id}`;
+          if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
+            clavesVistas.add(clave);
+            pedidosVistos.add(numPedido);
+            facturasCombinadas.push({
+              ...comp,
+              pedidos: pedido ? {
+                numero_pedido: pedido.numero_pedido,
+                total: Number(pedido.total),
+                metodo_pago: pedido.metodo_pago || 'card',
+                created_at: pedido.created_at
+              } : undefined
+            });
+          }
+        });
       }
-    } catch (err) {
-      console.warn('[ProductosService] No se pudieron cargar facturas remotas, usando respaldo local:', err);
     }
+  } catch (err) {
+    console.warn('[ProductosService] Error al cargar facturas remotas en Supabase:', err);
   }
 
-  // 2. Cargar historial local (localStorage) como respaldo/complemento
+  // 2. Cargar historial local (localStorage) según el rol y propiedad
   try {
     const rawLocal = localStorage.getItem('lacteos_leo_comprobantes');
     if (rawLocal) {
       const locales: Array<any> = JSON.parse(rawLocal);
       locales.forEach((comp, idx) => {
+        if (!esStaff) {
+          // Si NO es administrador ni vendedor, validar estrictamente que la factura le pertenezca al cliente
+          const coincideId = comp.userId && usuarioId && String(comp.userId) === String(usuarioId);
+          const coincideEmail = comp.customerEmail && userEmail && comp.customerEmail.toLowerCase() === userEmail.toLowerCase();
+          const coincideEmailAlt = comp.email && userEmail && comp.email.toLowerCase() === userEmail.toLowerCase();
+
+          // Si no coincide por ID ni por correo, NO mostrar al cliente
+          if (!coincideId && !coincideEmail && !coincideEmailAlt) {
+            return;
+          }
+        }
+
         const clave = comp.claveAcceso || `SRI-LOCAL-${idx}-${comp.orderNumber}`;
         const numPedido = comp.orderNumber || `PED-${idx}`;
         if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {

@@ -26,7 +26,7 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
     setLoading(true);
     setError('');
     try {
-      const data = await obtenerFacturasUsuario(user?.id);
+      const data = await obtenerFacturasUsuario(user?.id, user?.role, user?.email);
       setFacturas(data);
     } catch (err: any) {
       setError('No se pudieron cargar tus facturas electrónicas.');

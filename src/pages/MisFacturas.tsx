@@ -41,7 +41,7 @@ export const MisFacturas: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const data = await obtenerFacturasUsuario(user.id);
+      const data = await obtenerFacturasUsuario(user.id, user.role, user.email);
       setFacturas(data);
     } catch (err: any) {
       console.error('Error detallado de Supabase:', err);
