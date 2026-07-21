@@ -147,6 +147,83 @@ export const generateSRIXML = (
   return xmlStr;
 };
 
+// Tabla de patrones de Code 128 para dibujo vectorial directo con jsPDF
+const CODE128_TABLE: number[][] = [
+  [2,1,2,2,2,2], [2,2,2,1,2,2], [2,2,2,2,2,1], [1,2,1,2,2,3], [1,2,1,3,2,2], // 0-4
+  [1,3,1,2,2,2], [1,2,2,2,1,3], [1,2,2,3,1,2], [1,3,2,2,1,2], [2,2,1,2,1,3], // 5-9
+  [2,2,1,3,1,2], [2,3,1,2,1,2], [1,1,2,2,3,2], [1,2,2,1,3,2], [1,2,2,2,3,1], // 10-14
+  [1,1,3,2,2,2], [1,2,3,1,2,2], [1,2,3,2,2,1], [2,2,3,2,1,1], [2,2,1,1,3,2], // 15-19
+  [2,2,1,2,3,1], [2,1,3,2,1,2], [2,2,3,1,1,2], [3,1,2,1,3,1], [3,1,1,2,2,2], // 20-24
+  [3,2,1,1,2,2], [3,2,1,2,2,1], [3,1,2,2,1,2], [3,2,2,1,1,2], [3,2,2,2,1,1], // 25-29
+  [2,1,2,1,2,3], [2,1,2,3,2,1], [2,3,2,1,2,1], [1,1,1,3,2,3], [1,3,1,1,2,3], // 30-34
+  [1,3,1,3,2,1], [1,1,2,3,1,3], [1,3,2,1,1,3], [1,3,2,3,1,1], [2,1,1,3,1,3], // 35-39
+  [2,3,1,1,1,3], [2,3,1,3,1,1], [1,1,2,1,3,3], [1,1,2,3,3,1], [1,3,2,1,3,1], // 40-44
+  [1,1,3,1,2,3], [1,1,3,3,2,1], [1,3,3,1,2,1], [3,1,3,1,2,1], [2,1,1,3,3,1], // 45-49
+  [2,3,1,1,3,1], [2,1,3,1,1,3], [2,1,3,3,1,1], [2,1,3,1,3,1], [3,1,1,1,2,3], // 50-54
+  [3,1,1,3,2,1], [3,3,1,1,2,1], [3,1,2,1,1,3], [3,1,2,3,1,1], [3,3,2,1,1,1], // 55-59
+  [3,1,4,1,1,1], [2,2,1,4,1,1], [4,3,1,1,1,1], [1,1,1,2,2,4], [1,1,1,4,2,2], // 60-64
+  [1,2,1,1,2,4], [1,2,1,4,2,1], [1,4,1,1,2,2], [1,4,1,2,2,1], [1,1,2,2,1,4], // 65-69
+  [1,1,2,4,1,2], [1,2,2,1,1,4], [1,2,2,4,1,1], [1,4,2,1,1,2], [1,4,2,2,1,1], // 70-74
+  [2,4,1,2,1,1], [2,2,1,1,1,4], [4,1,3,1,1,1], [2,4,1,1,1,2], [1,3,4,1,1,1], // 75-79
+  [1,1,1,2,4,2], [1,2,1,1,4,2], [1,2,1,2,4,1], [1,1,4,2,1,2], [1,2,4,1,1,2], // 80-84
+  [1,2,4,2,1,1], [4,1,1,2,1,2], [4,2,1,1,1,2], [4,2,1,2,1,1], [2,1,2,1,4,1], // 85-89
+  [2,1,4,1,2,1], [4,1,2,1,2,1], [1,1,1,1,4,3], [1,1,1,3,4,1], [1,3,1,1,4,1], // 90-94
+  [1,1,4,1,1,3], [1,1,4,3,1,1], [4,1,1,1,1,3], [4,1,1,3,1,1], [1,1,3,1,4,1], // 95-99
+  [1,1,4,1,3,1], [3,1,1,1,4,1], [4,1,1,1,3,1], [2,1,1,4,1,2], [2,1,1,2,1,4], // 100-104 (103=Start A, 104=Start B)
+  [2,1,1,2,3,2], [2,3,3,1,1,1,2]                                             // 105=Start C, 106=Stop
+];
+
+/**
+ * Dibuja un Código de Barras Code 128 C vectorizado ultra nítido en jsPDF
+ */
+function drawVectorCode128(doc: any, code: string, x: number, y: number, width: number, height: number) {
+  const cleanCode = code.replace(/\D/g, '');
+  if (!cleanCode) return;
+
+  const symbols: number[] = [];
+  if (cleanCode.length % 2 !== 0) {
+    symbols.push(104); // Start B
+    symbols.push(cleanCode.charCodeAt(0) - 32);
+    symbols.push(99); // Switch to Code C
+    for (let i = 1; i < cleanCode.length; i += 2) {
+      symbols.push(parseInt(cleanCode.substring(i, i + 2), 10));
+    }
+  } else {
+    symbols.push(105); // Start C
+    for (let i = 0; i < cleanCode.length; i += 2) {
+      symbols.push(parseInt(cleanCode.substring(i, i + 2), 10));
+    }
+  }
+
+  let checksum = symbols[0];
+  for (let i = 1; i < symbols.length; i++) {
+    checksum += symbols[i] * i;
+  }
+  symbols.push(checksum % 103);
+  symbols.push(106); // Stop
+
+  let totalModules = 0;
+  for (const symIdx of symbols) {
+    const pattern = CODE128_TABLE[symIdx] || CODE128_TABLE[0];
+    for (const w of pattern) totalModules += w;
+  }
+
+  const moduleWidth = width / totalModules;
+  let currentX = x;
+
+  doc.setFillColor(0, 0, 0); // Negro puro para las barras
+  for (const symIdx of symbols) {
+    const pattern = CODE128_TABLE[symIdx] || CODE128_TABLE[0];
+    for (let j = 0; j < pattern.length; j++) {
+      const w = pattern[j] * moduleWidth;
+      if (j % 2 === 0) {
+        doc.rect(currentX, y, w, height, 'F');
+      }
+      currentX += w;
+    }
+  }
+}
+
 export const generateRIDE = (
   customerInfo: CustomerInfo,
   items: Array<{ id?: string | number; name: string; quantity: number; price: number; desc?: string; category?: string }>,
@@ -177,7 +254,7 @@ export const generateRIDE = (
   // ============================================================================
   doc.setDrawColor(203, 213, 225); // Borde gris claro elegante
   doc.setLineWidth(0.5);
-  doc.roundedRect(14, 15, 88, 55, 3, 3, 'S'); // 'S' = Solo contorno, fondo 100% blanco y claro
+  doc.roundedRect(14, 15, 88, 75, 3, 3, 'S'); // 'S' = Solo contorno, fondo 100% blanco y claro
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
@@ -195,67 +272,74 @@ export const generateRIDE = (
   doc.text('OBLIGADO A LLEVAR CONTABILIDAD: SÍ', 18, 59);
 
   // ============================================================================
-  // CAJA DERECHA: DATOS SRI & CLAVE DE ACCESO - FONDO BLANCO PURO
+  // CAJA DERECHA: DATOS SRI & CLAVE DE ACCESO (CON CÓDIGO DE BARRAS) - FONDO BLANCO PURO
   // ============================================================================
-  doc.roundedRect(106, 15, 90, 55, 3, 3, 'S'); // 'S' = Solo contorno
+  doc.roundedRect(106, 15, 90, 75, 3, 3, 'S'); // 'S' = Solo contorno, altura 75 mm
 
   doc.setFontSize(13);
   doc.setTextColor(0, 0, 0);
-  doc.text('FACTURA ELECTRÓNICA', 110, 25);
+  doc.text('FACTURA ELECTRÓNICA', 110, 24);
   doc.setFontSize(11);
   doc.setTextColor(22, 163, 74);
-  doc.text(`No. ${numFactura}`, 110, 32);
+  doc.text(`No. ${numFactura}`, 110, 30);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
-  doc.text('NÚMERO DE AUTORIZACIÓN SRI:', 110, 38);
+  doc.text('NÚMERO DE AUTORIZACIÓN SRI:', 110, 36);
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(0, 0, 0);
-  doc.text(claveAcceso, 110, 43, { maxWidth: 82 });
+  doc.text(claveAcceso, 110, 41, { maxWidth: 82 });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`FECHA AUTORIZACIÓN: ${new Date().toLocaleString('es-EC')}`, 110, 52);
-  doc.text(`AMBIENTE: ${EMPRESA.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}`, 110, 57);
-  doc.text('EMISIÓN: NORMAL', 110, 62);
-  doc.text('CLAVE DE ACCESO:', 110, 67);
+  doc.text(`FECHA AUTORIZACIÓN: ${new Date().toLocaleString('es-EC')}`, 110, 48);
+  doc.text(`AMBIENTE: ${EMPRESA.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}`, 110, 53);
+  doc.text('EMISIÓN: NORMAL', 110, 58);
+  doc.text('CLAVE DE ACCESO:', 110, 64);
+
+  // Dibujar Código de Barras Code 128 C Ultra-Nítido y Clave de Acceso debajo
+  drawVectorCode128(doc, claveAcceso, 110, 66.5, 82, 13.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(claveAcceso, 110, 84, { maxWidth: 82 });
 
   // ============================================================================
   // CAJA CLIENTE (INFO FACTURA) - FONDO BLANCO PURO
   // ============================================================================
-  doc.roundedRect(14, 73, 182, 30, 3, 3, 'S'); // 'S' = Solo contorno, fondo blanco
+  doc.roundedRect(14, 94, 182, 30, 3, 3, 'S'); // 'S' = Solo contorno, fondo blanco
 
   const dateStr = new Date().toLocaleDateString('es-EC');
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Razón Social / Nombres:', 18, 81);
+  doc.text('Razón Social / Nombres:', 18, 102);
   doc.setFont('helvetica', 'normal');
-  doc.text(customerInfo.name || 'Consumidor Final', 60, 81);
+  doc.text(customerInfo.name || 'Consumidor Final', 60, 102);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Identificación / RUC / CI:', 18, 87);
+  doc.text('Identificación / RUC / CI:', 18, 108);
   doc.setFont('helvetica', 'normal');
-  doc.text(customerInfo.idNumber || '9999999999999', 60, 87);
+  doc.text(customerInfo.idNumber || '9999999999999', 60, 108);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Fecha de Emisión:', 130, 81);
+  doc.text('Fecha de Emisión:', 130, 102);
   doc.setFont('helvetica', 'normal');
-  doc.text(dateStr, 165, 81);
+  doc.text(dateStr, 165, 102);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Dirección:', 18, 93);
+  doc.text('Dirección:', 18, 114);
   doc.setFont('helvetica', 'normal');
-  doc.text(customerInfo.address || 'Ecuador', 60, 93, { maxWidth: 65 });
+  doc.text(customerInfo.address || 'Ecuador', 60, 114, { maxWidth: 65 });
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Email Comprador:', 130, 87);
+  doc.text('Email Comprador:', 130, 108);
   doc.setFont('helvetica', 'normal');
-  doc.text(customerInfo.email || 'cliente@lacteosleo.com', 165, 87, { maxWidth: 30 });
+  doc.text(customerInfo.email || 'cliente@lacteosleo.com', 165, 108, { maxWidth: 30 });
 
   // ============================================================================
   // TABLA DE PRODUCTOS Y DETALLE (AUTOTABLE) - FONDO CLARO CON CONTRASTE
@@ -270,7 +354,7 @@ export const generateRIDE = (
   ]);
 
   autoTable(doc, {
-    startY: 107,
+    startY: 128,
     head: [['Código', 'Descripción del Producto', 'Cantidad', 'P. Unitario', 'Descuento', 'Total']],
     body: tableData,
     theme: 'grid',
