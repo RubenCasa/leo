@@ -173,11 +173,11 @@ export const generateRIDE = (
   });
 
   // ============================================================================
-  // CAJA IZQUIERDA: DATOS EMISOR (LÁCTEOS LEO)
+  // CAJA IZQUIERDA: DATOS EMISOR (LÁCTEOS LEO) - FONDO BLANCO PURO
   // ============================================================================
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(203, 213, 225);
-  doc.roundedRect(14, 15, 88, 55, 3, 3, 'FD');
+  doc.setDrawColor(203, 213, 225); // Borde gris claro elegante
+  doc.setLineWidth(0.5);
+  doc.roundedRect(14, 15, 88, 55, 3, 3, 'S'); // 'S' = Solo contorno, fondo 100% blanco y claro
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
@@ -185,7 +185,7 @@ export const generateRIDE = (
   doc.text(EMPRESA.razonSocial, 18, 26);
 
   doc.setFontSize(9.5);
-  doc.setTextColor(15, 23, 42); // Dark slate
+  doc.setTextColor(0, 0, 0); // Texto negro puro para máxima legibilidad y contraste
   doc.text(`Nombre Comercial: ${EMPRESA.nombreComercial}`, 18, 33);
   doc.setFont('helvetica', 'normal');
   doc.text(`RUC: ${EMPRESA.ruc}`, 18, 39);
@@ -195,12 +195,12 @@ export const generateRIDE = (
   doc.text('OBLIGADO A LLEVAR CONTABILIDAD: SÍ', 18, 59);
 
   // ============================================================================
-  // CAJA DERECHA: DATOS SRI & CLAVE DE ACCESO
+  // CAJA DERECHA: DATOS SRI & CLAVE DE ACCESO - FONDO BLANCO PURO
   // ============================================================================
-  doc.roundedRect(106, 15, 90, 55, 3, 3, 'FD');
+  doc.roundedRect(106, 15, 90, 55, 3, 3, 'S'); // 'S' = Solo contorno
 
   doc.setFontSize(13);
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(0, 0, 0);
   doc.text('FACTURA ELECTRÓNICA', 110, 25);
   doc.setFontSize(11);
   doc.setTextColor(22, 163, 74);
@@ -208,12 +208,12 @@ export const generateRIDE = (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(71, 85, 105);
+  doc.setTextColor(0, 0, 0);
   doc.text('NÚMERO DE AUTORIZACIÓN SRI:', 110, 38);
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(0, 0, 0);
   doc.text(claveAcceso, 110, 43, { maxWidth: 82 });
 
   doc.setFont('helvetica', 'normal');
@@ -224,13 +224,13 @@ export const generateRIDE = (
   doc.text('CLAVE DE ACCESO:', 110, 67);
 
   // ============================================================================
-  // CAJA CLIENTE (INFO FACTURA)
+  // CAJA CLIENTE (INFO FACTURA) - FONDO BLANCO PURO
   // ============================================================================
-  doc.roundedRect(14, 73, 182, 30, 3, 3, 'FD');
+  doc.roundedRect(14, 73, 182, 30, 3, 3, 'S'); // 'S' = Solo contorno, fondo blanco
 
   const dateStr = new Date().toLocaleDateString('es-EC');
   doc.setFontSize(9);
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(0, 0, 0);
   
   doc.setFont('helvetica', 'bold');
   doc.text('Razón Social / Nombres:', 18, 81);
@@ -258,7 +258,7 @@ export const generateRIDE = (
   doc.text(customerInfo.email || 'cliente@lacteosleo.com', 165, 87, { maxWidth: 30 });
 
   // ============================================================================
-  // TABLA DE PRODUCTOS Y DETALLE (AUTOTABLE)
+  // TABLA DE PRODUCTOS Y DETALLE (AUTOTABLE) - FONDO CLARO CON CONTRASTE
   // ============================================================================
   const tableData = (items || []).map(item => [
     String(item.id || 'LEO-PRD'),
@@ -275,7 +275,9 @@ export const generateRIDE = (
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
-    styles: { fontSize: 8.5, textColor: [15, 23, 42], cellPadding: 3.5 },
+    bodyStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontSize: 8.5 },
+    alternateRowStyles: { fillColor: [255, 255, 255] }, // Fondo blanco 100% en todas las filas para máxima claridad
+    styles: { fontSize: 8.5, textColor: [0, 0, 0], cellPadding: 3.5, lineColor: [203, 213, 225], lineWidth: 0.3 },
     columnStyles: {
       0: { cellWidth: 25 },
       1: { cellWidth: 67 },
@@ -287,12 +289,12 @@ export const generateRIDE = (
   });
 
   // ============================================================================
-  // TOTALES FISCALES Y FORMA DE PAGO
+  // TOTALES FISCALES Y FORMA DE PAGO - FONDO BLANCO PURO
   // ============================================================================
   const finalY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Caja izquierda: Información Adicional y Pagos
-  doc.roundedRect(14, finalY, 100, 48, 2, 2, 'FD');
+  // Caja izquierda: Información Adicional y Pagos (Solo contorno 'S')
+  doc.roundedRect(14, finalY, 100, 48, 2, 2, 'S');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(22, 163, 74);
@@ -300,7 +302,7 @@ export const generateRIDE = (
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(51, 65, 85);
+  doc.setTextColor(0, 0, 0);
   doc.text(`Correo electrónico: ${customerInfo.email || 'cliente@lacteosleo.com'}`, 18, finalY + 16);
   doc.text('Forma de Pago:', 18, finalY + 24);
   doc.setFont('helvetica', 'bold');
@@ -308,10 +310,10 @@ export const generateRIDE = (
   doc.setFont('helvetica', 'normal');
   doc.text(`Valor Pagado: $${total.toFixed(2)} | Plazo: 0 días`, 18, finalY + 38);
 
-  // Caja derecha: Totales
-  doc.roundedRect(118, finalY, 78, 48, 2, 2, 'FD');
+  // Caja derecha: Totales (Solo contorno 'S')
+  doc.roundedRect(118, finalY, 78, 48, 2, 2, 'S');
   doc.setFontSize(8.5);
-  doc.setTextColor(51, 65, 85);
+  doc.setTextColor(0, 0, 0);
 
   doc.text('SUBTOTAL 0%:', 123, finalY + 8);
   doc.text(`$${total.toFixed(2)}`, 188, finalY + 8, { align: 'right' });
