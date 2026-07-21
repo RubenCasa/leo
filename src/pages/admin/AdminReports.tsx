@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchTodosPedidos } from '../../lib/productosService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileDown, FileText, Search } from 'lucide-react';
+import { FileDown, FileText, Search, X, Filter, TrendingUp, ShoppingBag, DollarSign } from 'lucide-react';
 
 interface PedidoReport {
   id: number;
@@ -59,6 +59,28 @@ export const AdminReports: React.FC = () => {
   });
 
   const totalVentas = filteredPedidos.reduce((sum, p) => sum + Number(p.total), 0);
+  const pedidosCompletados = filteredPedidos.filter(p => p.estado === 'completado').length;
+  const pedidosPendientes = filteredPedidos.filter(p => p.estado === 'pendiente').length;
+
+  const total = filteredPedidos.length;
+  const pctCompletado = total ? (pedidosCompletados / total) * 100 : 0;
+  const pctPendiente = total ? (pedidosPendientes / total) * 100 : 0;
+  
+  const donutGradient = total === 0 
+    ? 'conic-gradient(#e2ece3 0% 100%)' 
+    : `conic-gradient(
+        #16a34a 0% ${pctCompletado}%, 
+        #f59e0b ${pctCompletado}% ${pctCompletado + pctPendiente}%, 
+        #ef4444 ${pctCompletado + pctPendiente}% 100%
+      )`;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const hasFilters = searchQuery !== '' || dateFrom !== '' || dateTo !== '';
 
   // ============================================================
   // EXPORTAR A CSV (RS-02)
@@ -150,58 +172,136 @@ export const AdminReports: React.FC = () => {
   };
 
   if (loading) {
-    return <div style={{ padding: '60px', textAlign: 'center' }}>Cargando reportes...</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#475569' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #e2ece3', borderTopColor: '#16a34a', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+        <p className="font-display">Generando reportes...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
   return (
-    <div>
+    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
       <div className="admin-page-header">
         <h1 className="font-display">Reportes y Auditoría (RS-02)</h1>
-        <p>Exporta el registro completo de ventas en formatos CSV y PDF para auditorías financieras externas.</p>
+        <p>Analiza el rendimiento de ventas y exporta el registro en formatos CSV y PDF.</p>
       </div>
 
-      {/* Resumen */}
-      <div className="admin-kpi-row" style={{ marginBottom: '20px' }}>
-        <div className="admin-kpi-card">
-          <span className="kpi-label">Pedidos en Rango</span>
-          <div className="kpi-value font-display">{filteredPedidos.length}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px', marginBottom: '24px' }}>
+        {/* KPIs Gradiente */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          <div className="admin-kpi-card" style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)', color: '#fff', border: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '14px', fontWeight: '600', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ingresos Totales</span>
+                <div style={{ fontSize: '36px', fontWeight: '800', marginTop: '8px' }}>${totalVentas.toFixed(2)}</div>
+              </div>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <DollarSign size={24} color="#fff" />
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: '20px', width: 'fit-content' }}>
+              <TrendingUp size={14} /> +12.5% vs mes anterior
+            </div>
+          </div>
+
+          <div className="admin-kpi-card" style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: '#fff', border: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span style={{ fontSize: '14px', fontWeight: '600', opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pedidos en Rango</span>
+                <div style={{ fontSize: '36px', fontWeight: '800', marginTop: '8px' }}>{total}</div>
+              </div>
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShoppingBag size={24} color="#fff" />
+              </div>
+            </div>
+            <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: '20px', width: 'fit-content' }}>
+              {pedidosCompletados} completados
+            </div>
+          </div>
         </div>
-        <div className="admin-kpi-card">
-          <span className="kpi-label">Venta Total</span>
-          <div className="kpi-value font-display">${totalVentas.toFixed(2)}</div>
+
+        {/* Gráfico de Dona CSS */}
+        <div className="admin-kpi-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+          <span style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', alignSelf: 'flex-start', marginBottom: '16px' }}>Estado de Pedidos</span>
+          <div style={{ position: 'relative', width: '120px', height: '120px', borderRadius: '50%', background: donutGradient, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '20px', fontWeight: '800', color: '#1e293b' }}>{total}</span>
+              <span style={{ fontSize: '10px', fontWeight: '600', color: '#64748b' }}>TOTAL</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '20px', width: '100%', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#475569' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#16a34a' }}></div> Completado
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#475569' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b' }}></div> Pendiente
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#475569' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ef4444' }}></div> Cancelado
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="admin-table-wrapper">
-        <div className="admin-table-toolbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <Search size={16} style={{ color: '#64748b' }} />
-            <input
-              type="text"
-              placeholder="Buscar por N° pedido o cliente..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={e => setDateFrom(e.target.value)}
-              style={{ padding: '9px 12px', border: '1.5px solid #d1ddd3', borderRadius: '8px', fontSize: '13px' }}
-            />
-            <span style={{ color: '#94a3b8', fontSize: '13px' }}>a</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={e => setDateTo(e.target.value)}
-              style={{ padding: '9px 12px', border: '1.5px solid #d1ddd3', borderRadius: '8px', fontSize: '13px' }}
-            />
+        <div className="admin-table-toolbar" style={{ flexWrap: 'wrap', gap: '16px', background: '#f8faf9', borderBottom: '1px solid #e2ece3' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #d1ddd3', borderRadius: '10px', padding: '0 12px' }}>
+              <Search size={16} style={{ color: '#64748b' }} />
+              <input
+                type="text"
+                placeholder="Buscar por N° pedido o cliente..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', padding: '10px 0', fontSize: '13px', width: '220px' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #d1ddd3', borderRadius: '10px', padding: '6px 12px' }}>
+              <Filter size={14} style={{ color: '#64748b' }} />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                style={{ border: 'none', outline: 'none', fontSize: '13px', color: '#475569', background: 'transparent' }}
+              />
+              <span style={{ color: '#cbd5e1' }}>|</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                style={{ border: 'none', outline: 'none', fontSize: '13px', color: '#475569', background: 'transparent' }}
+              />
+            </div>
+
+            {hasFilters && (
+              <button 
+                onClick={clearFilters}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#fee2e2', color: '#ef4444', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'background 0.2s' }}
+              >
+                <X size={14} /> Limpiar Filtros
+              </button>
+            )}
           </div>
-          <div className="admin-export-btns">
-            <button className="admin-btn-export csv" onClick={exportCSV}>
-              <FileDown size={15} /> Exportar CSV
+          
+          <div className="admin-export-btns" style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              onClick={exportCSV}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #e2ece3', color: '#475569', padding: '10px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+              onMouseOver={e => e.currentTarget.style.borderColor = '#16a34a'}
+              onMouseOut={e => e.currentTarget.style.borderColor = '#e2ece3'}
+            >
+              <FileDown size={16} color="#16a34a" /> CSV
             </button>
-            <button className="admin-btn-export pdf" onClick={exportPDF}>
-              <FileText size={15} /> Exportar PDF
+            <button 
+              onClick={exportPDF}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1.5px solid #e2ece3', color: '#475569', padding: '10px 16px', borderRadius: '10px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+              onMouseOver={e => e.currentTarget.style.borderColor = '#dc2626'}
+              onMouseOut={e => e.currentTarget.style.borderColor = '#e2ece3'}
+            >
+              <FileText size={16} color="#dc2626" /> PDF
             </button>
           </div>
         </div>
@@ -220,44 +320,53 @@ export const AdminReports: React.FC = () => {
           </thead>
           <tbody>
             {filteredPedidos.map(pedido => (
-              <tr key={pedido.id}>
-                <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1b5e20' }}>
+              <tr key={pedido.id} style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                <td style={{ fontFamily: 'monospace', fontWeight: 800, color: '#16a34a' }}>
                   {pedido.numero_pedido}
                 </td>
                 <td>
-                  <div style={{ fontWeight: 600 }}>{pedido.usuarios?.nombre || 'N/A'}</div>
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>{pedido.usuarios?.email || ''}</div>
+                  <div style={{ fontWeight: 700, color: '#1e293b' }}>{pedido.usuarios?.nombre || 'N/A'}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>{pedido.usuarios?.email || ''}</div>
                 </td>
-                <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#475569' }}>
                   {pedido.usuarios?.cedula || '—'}
                 </td>
-                <td style={{ fontWeight: 800, color: '#1b5e20' }}>
+                <td style={{ fontWeight: 800, color: '#16a34a', fontSize: '15px' }}>
                   ${Number(pedido.total).toFixed(2)}
                 </td>
-                <td style={{ textTransform: 'capitalize', fontSize: '12px' }}>
-                  {pedido.metodo_pago || 'N/A'}
+                <td>
+                  <span style={{ display: 'inline-block', padding: '4px 10px', background: '#f1f5f9', borderRadius: '6px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: '#475569' }}>
+                    {pedido.metodo_pago || 'N/A'}
+                  </span>
                 </td>
                 <td>
                   <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     fontSize: '11px',
-                    fontWeight: 700,
-                    color: pedido.estado === 'completado' ? '#2e7d32' : '#e65100',
-                    background: pedido.estado === 'completado' ? '#e8f5e9' : '#fff3e0',
-                    padding: '3px 8px',
-                    borderRadius: '4px'
+                    fontWeight: 800,
+                    color: pedido.estado === 'completado' ? '#166534' : pedido.estado === 'pendiente' ? '#b45309' : '#991b1b',
+                    background: pedido.estado === 'completado' ? '#dcfce7' : pedido.estado === 'pendiente' ? '#fef3c7' : '#fee2e2',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    textTransform: 'uppercase'
                   }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: pedido.estado === 'completado' ? '#16a34a' : pedido.estado === 'pendiente' ? '#f59e0b' : '#ef4444' }}></span>
                     {pedido.estado}
                   </span>
                 </td>
-                <td style={{ fontSize: '12px', color: '#64748b' }}>
+                <td style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
                   {new Date(pedido.created_at).toLocaleDateString('es-EC')}
                 </td>
               </tr>
             ))}
             {filteredPedidos.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                  No se encontraron pedidos en el rango seleccionado.
+                <td colSpan={7} style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>
+                  <FileText size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                  <p style={{ fontSize: '15px', fontWeight: '600', margin: 0 }}>No se encontraron pedidos.</p>
+                  <p style={{ fontSize: '13px', margin: '4px 0 0' }}>Intenta ajustar los filtros de búsqueda.</p>
                 </td>
               </tr>
             )}

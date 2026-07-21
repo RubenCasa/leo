@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import './Navbar.css';
-import { ShoppingCart, User as UserIcon, LogOut, FileText, Sparkles } from 'lucide-react';
+import { ShoppingCart, User as UserIcon, LogOut, FileText, Sparkles, ShieldCheck, Store } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { MisFacturasModal } from './MisFacturasModal';
@@ -42,16 +42,7 @@ export const Navbar: React.FC = () => {
           <a href={isHome ? '#contacto' : '/#contacto'} className="menu-link">
             CONTACTO
           </a>
-          {user?.role === 'administrador' && (
-            <Link to="/admin" className="menu-link" style={{ color: '#ef5350' }}>
-              🛡️ ADMIN
-            </Link>
-          )}
-          {(user?.role === 'vendedor' || user?.role === 'administrador') && (
-            <Link to="/vendedor" className="menu-link" style={{ color: '#ff9800' }}>
-              🏪 VENDEDOR
-            </Link>
-          )}
+          {/* Admin y Vendedor links se movieron a la derecha para mayor prominencia */}
         </nav>
 
         {/* Right Action Block */}
@@ -97,6 +88,76 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <div className="user-cart-block" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {user.role === 'administrador' && (
+                <Link
+                  to="/admin"
+                  className="font-display"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%)', 
+                    color: '#fff', 
+                    border: '1px solid rgba(255,255,255,0.2)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    padding: '8px 16px', 
+                    borderRadius: '24px', 
+                    fontSize: '13px', 
+                    textDecoration: 'none', 
+                    fontWeight: 800, 
+                    boxShadow: '0 4px 12px rgba(67, 56, 202, 0.3)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    letterSpacing: '0.03em'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(67, 56, 202, 0.5)';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #312e81 0%, #4f46e5 100%)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(67, 56, 202, 0.3)';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%)';
+                  }}
+                  title="Entrar al Panel de Administración y Control"
+                >
+                  <ShieldCheck size={16} style={{ color: '#818cf8' }} /> ADMIN
+                </Link>
+              )}
+              {user.role === 'vendedor' && (
+                <Link
+                  to="/vendedor"
+                  className="font-display"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #78350f 0%, #d97706 100%)', 
+                    color: '#fff', 
+                    border: '1px solid rgba(255,255,255,0.2)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    padding: '8px 16px', 
+                    borderRadius: '24px', 
+                    fontSize: '13px', 
+                    textDecoration: 'none', 
+                    fontWeight: 800, 
+                    boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    letterSpacing: '0.03em'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(217, 119, 6, 0.5)';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(217, 119, 6, 0.3)';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #78350f 0%, #d97706 100%)';
+                  }}
+                  title="Entrar al Panel de Vendedor"
+                >
+                  <Store size={16} style={{ color: '#fcd34d' }} /> VENDEDOR
+                </Link>
+              )}
               <Link
                 to="/mis-facturas"
                 className="nav-btn-login font-display"
@@ -229,6 +290,24 @@ export const Navbar: React.FC = () => {
             <>
               <div className="mobile-user-greeting" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div>👤 Hola, {user.name} ({user.email})</div>
+                {user.role === 'administrador' && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMenuActive(false)}
+                    style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '12px', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', boxShadow: '0 4px 12px rgba(67, 56, 202, 0.3)' }}
+                  >
+                    <ShieldCheck size={18} style={{ color: '#818cf8' }} /> Entrar al Panel Admin
+                  </Link>
+                )}
+                {user.role === 'vendedor' && (
+                  <Link
+                    to="/vendedor"
+                    onClick={() => setMenuActive(false)}
+                    style={{ background: 'linear-gradient(135deg, #78350f 0%, #d97706 100%)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '12px', borderRadius: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', boxShadow: '0 4px 12px rgba(217, 119, 6, 0.3)' }}
+                  >
+                    <Store size={18} style={{ color: '#fcd34d' }} /> Entrar al Panel Vendedor
+                  </Link>
+                )}
                 <Link 
                   to="/mis-facturas"
                   onClick={() => setMenuActive(false)}

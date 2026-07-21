@@ -3,6 +3,12 @@ import { supabase, signUpWithEmail, signInWithEmail, signInWithGoogle } from '..
 
 export type UserRole = 'administrador' | 'vendedor' | 'cliente';
 
+// ============================================================
+// 🛡️ CORREO DEL ADMINISTRADOR PRINCIPAL
+// Este correo recibirá rol_id = 1 (administrador) automáticamente
+// ============================================================
+const ADMIN_EMAIL = 'rubendariocasacasa@gmail.com';
+
 export interface User {
   id?: string;
   name: string;
@@ -35,14 +41,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper para verificar si un correo ya fue registrado en nuestra plataforma
-const isEmailRegistered = (email: string): boolean => {
-  const raw = localStorage.getItem('lacteos_leo_registered_emails');
-  const emails: string[] = raw ? JSON.parse(raw) : [];
-  return emails.includes(email.toLowerCase());
-};
-
-// Helper para guardar un correo como registrado
+// Helper para guardar un correo como registrado en localStorage (respaldo local)
 const saveRegisteredEmail = (email: string) => {
   const raw = localStorage.getItem('lacteos_leo_registered_emails');
   const emails: string[] = raw ? JSON.parse(raw) : [];
@@ -51,6 +50,11 @@ const saveRegisteredEmail = (email: string) => {
     emails.push(lower);
     localStorage.setItem('lacteos_leo_registered_emails', JSON.stringify(emails));
   }
+};
+
+// Helper: Verificar si el correo es el del administrador
+const isAdminEmail = (email: string): boolean => {
+  return email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 };
 
 // Helper para obtener el rol del usuario desde Supabase
@@ -81,7 +85,8 @@ const fetchUserRole = async (userId: string): Promise<{ role: UserRole; rolId: n
   }
 };
 
-// Helper para crear/actualizar el registro del usuario en tabla usuarios sin sobrescribir el rol existente
+// Helper para crear/actualizar el registro del usuario en tabla usuarios
+// Si el correo es el del ADMIN, asigna rol_id = 1 automáticamente
 const upsertUsuario = async (
   userId: string,
   nombre: string,
@@ -90,14 +95,34 @@ const upsertUsuario = async (
   telefono?: string
 ) => {
   try {
-    // Primero verificamos si el usuario ya existe en la tabla y qué rol tiene
+    // Si es el correo de admin, forzar rol_id = 1
+    if (isAdminEmail(email)) {
+      const { error } = await supabase
+        .from('usuarios')
+        .upsert({
+          id: userId,
+          nombre,
+          email,
+          cedula: cedula || null,
+          telefono: telefono || null,
+          rol_id: 1, // 🛡️ ADMINISTRADOR
+          activo: true
+        }, { onConflict: 'id' });
+
+      if (error) {
+        console.warn('Error al guardar admin en tabla usuarios:', error.message);
+      }
+      return;
+    }
+
+    // Para usuarios normales: mantener el rol existente o asignar cliente
     const { data: existingUser } = await supabase
       .from('usuarios')
       .select('rol_id')
       .eq('id', userId)
       .maybeSingle();
 
-    const rolToAssign = existingUser?.rol_id || 3; // Mantener el rol existente, o cliente (3) si es nuevo
+    const rolToAssign = existingUser?.rol_id || 3;
 
     const { error } = await supabase
       .from('usuarios')
@@ -139,11 +164,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }): Promise<User> => {
     const meta = sessionUser.user_metadata || {};
     const userId = sessionUser.id || '';
+    const email = (sessionUser.email || '').toLowerCase();
 
     // Obtener rol desde la base de datos
     let roleInfo: { role: UserRole; rolId: number; cedula?: string } = { role: 'cliente', rolId: 3, cedula: undefined };
     if (userId) {
       roleInfo = await fetchUserRole(userId);
+    }
+
+    // Si es el admin y aún no tiene rol de admin, forzar
+    if (isAdminEmail(email) && roleInfo.rolId !== 1) {
+      roleInfo = { role: 'administrador', rolId: 1, cedula: roleInfo.cedula };
     }
 
     return {
@@ -168,39 +199,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const intent = localStorage.getItem('lacteos_leo_google_intent');
       localStorage.removeItem('lacteos_leo_google_intent');
 
+      // Siempre sincronizar el email en localStorage
+      saveRegisteredEmail(email);
+
+      // Crear/actualizar el usuario en la tabla usuarios de Supabase
       const userObj = await buildUserFromSession(sessionUser);
+      if (sessionUser.id) {
+        await upsertUsuario(sessionUser.id, userObj.name, email);
+        // Re-fetch del rol por si acaba de ser promovido a admin
+        if (isAdminEmail(email)) {
+          userObj.role = 'administrador';
+          userObj.rolId = 1;
+        }
+      }
 
       // CASO 1: El usuario dio clic en "Registrarse con Google"
       if (intent === 'register') {
-        saveRegisteredEmail(email);
-        // Crear registro en tabla usuarios
-        if (sessionUser.id) {
-          await upsertUsuario(sessionUser.id, userObj.name, email);
-        }
         setUser(userObj);
         setIsAuthModalOpen(false);
         return;
       }
 
       // CASO 2: El usuario dio clic en "Ingresar con Google" (LOGIN)
+      // Ya no bloqueamos por localStorage — si Supabase lo autenticó, es válido
       if (intent === 'login') {
-        if (isEmailRegistered(email)) {
-          setUser(userObj);
-          setIsAuthModalOpen(false);
-        } else {
-          try { await supabase.auth.signOut(); } catch { /* silenciar */ }
-          setUser(null);
-          setAuthError('❌ Esta cuenta de Google aún no está registrada en Lácteos Leo. Por favor ve a la pestaña "Registrarse" primero para crear tu cuenta.');
-          setIsAuthModalOpen(true);
-          setAuthModalMode('login');
-        }
+        setUser(userObj);
+        setIsAuthModalOpen(false);
         return;
       }
 
       // CASO 3: Recarga de página normal (sin intent explícito)
       if (sessionUser.id) {
-        saveRegisteredEmail(email);
-        await upsertUsuario(sessionUser.id, userObj.name, email);
         setUser(userObj);
       } else {
         try { await supabase.auth.signOut(); } catch { /* silenciar */ }
@@ -267,21 +296,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthError('');
     setAuthSuccess('');
     try {
-      if (isEmailRegistered(email)) {
-        setAuthError('❌ Este correo ya está registrado en nuestra plataforma. Por favor usa "Iniciar Sesión".');
-        return false;
-      }
-
       const data = await signUpWithEmail(email, password, { name, phone: phone || '', cedula: cedula || '' });
 
-      // Guardar el correo como registrado autorizadamente
+      // Guardar el correo como registrado
       saveRegisteredEmail(email);
 
       // Al estar "Confirm email" desactivado, entra instantáneamente
       if (data.session?.user || data.user) {
         const userId = data.session?.user?.id || data.user?.id || '';
         
-        // Crear registro en tabla usuarios con cédula y rol cliente
+        // Determinar rol: admin automático si es el correo configurado
+        const esAdmin = isAdminEmail(email);
+        const rolAsignar = esAdmin ? 1 : 3;
+        const rolNombre: UserRole = esAdmin ? 'administrador' : 'cliente';
+
+        // Crear registro en tabla usuarios
         if (userId) {
           await upsertUsuario(userId, name, email, cedula, phone);
         }
@@ -293,8 +322,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone: phone || '',
           cedula: cedula || '',
           provider: 'Correo',
-          role: 'cliente',
-          rolId: 3
+          role: rolNombre,
+          rolId: rolAsignar
         };
         setUser(newUser);
         setIsAuthModalOpen(false);
@@ -316,22 +345,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // ============================================================
-  // INICIAR SESIÓN con correo y contraseña (bloquea no registrados)
+  // INICIAR SESIÓN con correo y contraseña
+  // YA NO depende de localStorage — va directo a Supabase
   // ============================================================
   const login = async (email: string, password: string): Promise<boolean> => {
     setAuthError('');
     setAuthSuccess('');
     try {
-      if (!isEmailRegistered(email)) {
-        setAuthError('❌ No existe ninguna cuenta registrada con este correo. Primero debes ir a la pestaña "Registrarse".');
-        return false;
-      }
-
+      // Intentar login directamente con Supabase (sin verificar localStorage)
       const data = await signInWithEmail(email, password);
       if (data.user) {
+        // Sincronizar email en localStorage
+        saveRegisteredEmail(email);
+
         const userObj = await buildUserFromSession(data.user);
         if (data.user.id) {
           await upsertUsuario(data.user.id, userObj.name, email);
+          // Si es admin, forzar rol
+          if (isAdminEmail(email)) {
+            userObj.role = 'administrador';
+            userObj.rolId = 1;
+          }
         }
         setUser(userObj);
         setIsAuthModalOpen(false);
@@ -360,7 +394,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // ============================================================
-  // INICIAR SESIÓN con Google OAuth (bloquea no registrados)
+  // INICIAR SESIÓN con Google OAuth
+  // YA NO bloquea por localStorage — si Supabase lo autentica, es válido
   // ============================================================
   const loginWithGoogle = async () => {
     setAuthError('');

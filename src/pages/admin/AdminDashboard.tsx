@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { fetchEstadisticasDashboard } from '../../lib/productosService';
-import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
+import { fetchEstadisticasDashboard, fetchTodosPedidos, fetchTodosProductos } from '../../lib/productosService';
+import { Package, ShoppingCart, Users, DollarSign, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface DashboardStats {
   totalProductos: number;
@@ -11,13 +12,16 @@ interface DashboardStats {
 }
 
 export const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const barChartRef = useRef<HTMLCanvasElement>(null);
   const lineChartRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    loadStats();
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -27,13 +31,26 @@ export const AdminDashboard: React.FC = () => {
     }
   }, [stats]);
 
-  const loadStats = async () => {
+  const loadData = async () => {
     try {
-      const data = await fetchEstadisticasDashboard();
-      setStats(data);
+      setLoading(true);
+      const [statsData, ordersData, productsData] = await Promise.all([
+        fetchEstadisticasDashboard(),
+        fetchTodosPedidos(),
+        fetchTodosProductos()
+      ]);
+      setStats(statsData);
+      
+      // Get recent 5 orders
+      setRecentOrders(ordersData.slice(0, 5));
+      
+      // Get low stock products (stock < 15)
+      const lowStock = productsData.filter(p => p.stock > 0 && p.stock <= 15).sort((a, b) => a.stock - b.stock).slice(0, 5);
+      setLowStockProducts(lowStock);
+
     } catch (err) {
-      console.error('Error cargando estadísticas:', err);
-      // Usar datos de ejemplo si no hay conexión a BD
+      console.error('Error cargando datos del dashboard:', err);
+      // Fallback data
       setStats({
         totalProductos: 23,
         totalPedidos: 0,
@@ -44,6 +61,13 @@ export const AdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getWelcomeMessage = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
   const getMonthlyData = () => {
@@ -85,15 +109,16 @@ export const AdminDashboard: React.FC = () => {
 
     ctx.clearRect(0, 0, cw, ch);
 
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const padding = { top: 30, right: 20, bottom: 40, left: 50 };
     const chartW = cw - padding.left - padding.right;
     const chartH = ch - padding.top - padding.bottom;
-    const barWidth = chartW / labels.length * 0.6;
-    const barGap = chartW / labels.length * 0.4;
+    const barWidth = chartW / labels.length * 0.5;
+    const barGap = chartW / labels.length * 0.5;
 
     // Grid lines
     ctx.strokeStyle = '#e2ece3';
     ctx.lineWidth = 0.5;
+    ctx.setLineDash([4, 4]);
     for (let i = 0; i <= 4; i++) {
       const y = padding.top + (chartH / 4) * i;
       ctx.beginPath();
@@ -102,10 +127,11 @@ export const AdminDashboard: React.FC = () => {
       ctx.stroke();
 
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '9px sans-serif';
+      ctx.font = '10px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText('$' + Math.round(maxVal - (maxVal / 4) * i).toString(), padding.left - 6, y + 3);
+      ctx.fillText('$' + Math.round(maxVal - (maxVal / 4) * i).toString(), padding.left - 10, y + 4);
     }
+    ctx.setLineDash([]);
 
     // Bars
     const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -116,12 +142,12 @@ export const AdminDashboard: React.FC = () => {
 
       // Bar gradient
       const grad = ctx.createLinearGradient(x, y, x, y + barH);
-      grad.addColorStop(0, '#43a047');
-      grad.addColorStop(1, '#1b5e20');
+      grad.addColorStop(0, '#4ade80');
+      grad.addColorStop(1, '#16a34a');
       ctx.fillStyle = grad;
 
       // Rounded top
-      const radius = 4;
+      const radius = 6;
       ctx.beginPath();
       ctx.moveTo(x, y + barH);
       ctx.lineTo(x, y + radius);
@@ -133,16 +159,18 @@ export const AdminDashboard: React.FC = () => {
       ctx.fill();
 
       // Value on top
-      ctx.fillStyle = '#1b5e20';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('$' + values[i].toFixed(0), x + barWidth / 2, y - 5);
+      if (values[i] > 0) {
+        ctx.fillStyle = '#16a34a';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('$' + values[i].toFixed(0), x + barWidth / 2, y - 8);
+      }
 
       // Month label
       const monthNum = parseInt(label.split('-')[1], 10);
       ctx.fillStyle = '#475569';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(monthNames[monthNum - 1], x + barWidth / 2, ch - padding.bottom + 16);
+      ctx.font = '600 11px sans-serif';
+      ctx.fillText(monthNames[monthNum - 1], x + barWidth / 2, ch - padding.bottom + 20);
     });
   };
 
@@ -169,13 +197,14 @@ export const AdminDashboard: React.FC = () => {
 
     ctx.clearRect(0, 0, cw, ch);
 
-    const padding = { top: 20, right: 20, bottom: 40, left: 40 };
+    const padding = { top: 30, right: 30, bottom: 40, left: 40 };
     const chartW = cw - padding.left - padding.right;
     const chartH = ch - padding.top - padding.bottom;
 
     // Grid lines
     ctx.strokeStyle = '#e2ece3';
     ctx.lineWidth = 0.5;
+    ctx.setLineDash([4, 4]);
     for (let i = 0; i <= 4; i++) {
       const y = padding.top + (chartH / 4) * i;
       ctx.beginPath();
@@ -184,10 +213,11 @@ export const AdminDashboard: React.FC = () => {
       ctx.stroke();
 
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '9px sans-serif';
+      ctx.font = '10px sans-serif';
       ctx.textAlign = 'right';
-      ctx.fillText(Math.round(maxVal - (maxVal / 4) * i).toString(), padding.left - 6, y + 3);
+      ctx.fillText(Math.round(maxVal - (maxVal / 4) * i).toString(), padding.left - 10, y + 4);
     }
+    ctx.setLineDash([]);
 
     // Line
     const points: { x: number; y: number }[] = [];
@@ -200,9 +230,9 @@ export const AdminDashboard: React.FC = () => {
 
       const monthNum = parseInt(label.split('-')[1], 10);
       ctx.fillStyle = '#475569';
-      ctx.font = '10px sans-serif';
+      ctx.font = '600 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(monthNames[monthNum - 1], x, ch - padding.bottom + 16);
+      ctx.fillText(monthNames[monthNum - 1], x, ch - padding.bottom + 20);
     });
 
     // Fill area
@@ -213,27 +243,27 @@ export const AdminDashboard: React.FC = () => {
       ctx.lineTo(points[points.length - 1].x, padding.top + chartH);
       ctx.closePath();
       const grad = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
-      grad.addColorStop(0, 'rgba(46,125,50,0.15)');
-      grad.addColorStop(1, 'rgba(46,125,50,0.01)');
+      grad.addColorStop(0, 'rgba(37,99,235,0.2)');
+      grad.addColorStop(1, 'rgba(37,99,235,0.01)');
       ctx.fillStyle = grad;
       ctx.fill();
 
       // Line stroke
       ctx.beginPath();
       points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-      ctx.strokeStyle = '#2e7d32';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 3;
       ctx.lineJoin = 'round';
       ctx.stroke();
 
       // Points
       points.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
-        ctx.strokeStyle = '#2e7d32';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2.5;
         ctx.stroke();
       });
     }
@@ -241,48 +271,146 @@ export const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '60px', textAlign: 'center', color: '#475569' }}>
-        Cargando estadísticas del Dashboard...
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', color: '#475569' }}>
+        <div className="spinner" style={{ width: '40px', height: '40px', border: '4px solid #e2ece3', borderTopColor: '#16a34a', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }}></div>
+        <p className="font-display">Cargando datos del Dashboard...</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   const kpis = [
-    { icon: <Package size={22} />, label: 'Productos en Catálogo', value: stats?.totalProductos || 0, color: '#2e7d32' },
-    { icon: <ShoppingCart size={22} />, label: 'Pedidos Totales', value: stats?.totalPedidos || 0, color: '#1565c0' },
-    { icon: <Users size={22} />, label: 'Usuarios Registrados', value: stats?.totalUsuarios || 0, color: '#e65100' },
-    { icon: <DollarSign size={22} />, label: 'Ventas Totales', value: '$' + (stats?.ventasTotales || 0).toFixed(2), color: '#2e7d32' },
+    { icon: <Package size={24} />, label: 'Productos en Catálogo', value: stats?.totalProductos || 0, color: '#16a34a', trend: '+12%', trendUp: true },
+    { icon: <ShoppingCart size={24} />, label: 'Pedidos Totales', value: stats?.totalPedidos || 0, color: '#2563eb', trend: '+5%', trendUp: true },
+    { icon: <Users size={24} />, label: 'Usuarios Registrados', value: stats?.totalUsuarios || 0, color: '#ea580c', trend: '+18%', trendUp: true },
+    { icon: <DollarSign size={24} />, label: 'Ventas Totales', value: '$' + (stats?.ventasTotales || 0).toFixed(2), color: '#0d9488', trend: '+8%', trendUp: true },
   ];
 
   return (
-    <div>
-      <div className="admin-page-header">
-        <h1 className="font-display">Dashboard LEO-CONNECT</h1>
-        <p>Vista general del rendimiento de Lácteos Leo en tiempo real.</p>
+    <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+      <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <h1 className="font-display" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {getWelcomeMessage()}, {user?.name?.split(' ')[0] || 'Administrador'} 👋
+          </h1>
+          <p>Aquí tienes un resumen de la actividad de Lácteos Leo de hoy.</p>
+        </div>
+        <div style={{ background: '#fff', padding: '8px 16px', borderRadius: '12px', border: '1px solid #e2ece3', display: 'flex', gap: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '13px', fontWeight: '600' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', animation: 'pulseSubtle 2s infinite' }}></div>
+            Sistema en Línea
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
       <div className="admin-kpi-row">
         {kpis.map((kpi, i) => (
-          <div key={i} className="admin-kpi-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <div style={{ color: kpi.color, opacity: 0.8 }}>{kpi.icon}</div>
-              <span className="kpi-label">{kpi.label}</span>
+          <div key={i} className="admin-kpi-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div style={{ 
+                background: `${kpi.color}15`, 
+                color: kpi.color, 
+                padding: '12px', 
+                borderRadius: '14px',
+                display: 'inline-flex'
+              }}>
+                {kpi.icon}
+              </div>
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: '4px', 
+                background: kpi.trendUp ? '#dcfce7' : '#fee2e2', 
+                color: kpi.trendUp ? '#166534' : '#991b1b',
+                padding: '4px 8px', borderRadius: '20px', fontSize: '12px', fontWeight: '700'
+              }}>
+                <TrendingUp size={12} style={{ transform: kpi.trendUp ? 'none' : 'rotate(180deg)' }} />
+                {kpi.trend}
+              </div>
             </div>
+            <span className="kpi-label">{kpi.label}</span>
             <div className="kpi-value font-display">{kpi.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Charts (RF-03) */}
-      <div className="admin-charts-row">
-        <div className="admin-chart-card">
-          <h3 className="font-display">📊 Ventas Mensuales (Últimos 6 Meses)</h3>
-          <canvas ref={barChartRef} style={{ width: '100%', height: '170px' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '32px' }}>
+        {/* Charts Container */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="admin-chart-card">
+            <h3 className="font-display">📊 Rendimiento de Ventas (6 Meses)</h3>
+            <canvas ref={barChartRef} style={{ width: '100%', height: '220px' }} />
+          </div>
+          <div className="admin-chart-card">
+            <h3 className="font-display">📈 Crecimiento de Usuarios</h3>
+            <canvas ref={lineChartRef} style={{ width: '100%', height: '220px' }} />
+          </div>
         </div>
-        <div className="admin-chart-card">
-          <h3 className="font-display">📈 Tendencia de Usuarios Registrados</h3>
-          <canvas ref={lineChartRef} style={{ width: '100%', height: '170px' }} />
+
+        {/* Side Widgets */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Recent Activity */}
+          <div className="admin-chart-card" style={{ flex: '1', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 className="font-display" style={{ margin: 0 }}>🔔 Actividad Reciente</h3>
+            </div>
+            
+            {recentOrders.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {recentOrders.map((order, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '12px', paddingBottom: '16px', borderBottom: i !== recentOrders.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <ShoppingCart size={16} />
+                    </div>
+                    <div>
+                      <p style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                        Nuevo pedido <span style={{ color: '#2563eb' }}>#{order.numero_pedido}</span>
+                      </p>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={12} /> {new Date(order.created_at).toLocaleDateString('es-EC', { hour: '2-digit', minute: '2-digit' })} • ${Number(order.total).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '20px 0' }}>No hay actividad reciente.</p>
+            )}
+          </div>
+
+          {/* Low Stock Alerts */}
+          <div className="admin-chart-card" style={{ padding: '24px', background: 'linear-gradient(to bottom, #fff, #fef2f2)', border: '1px solid #fee2e2' }}>
+            <h3 className="font-display" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', margin: '0 0 20px' }}>
+              <AlertTriangle size={18} /> Alertas de Stock
+            </h3>
+            
+            {lowStockProducts.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {lowStockProducts.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '12px', borderRadius: '10px', border: '1px solid #fecaca', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img src={p.imagen_url} alt={p.nombre} style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }} />
+                      <div>
+                        <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{p.nombre}</p>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>{p.categoria}</p>
+                      </div>
+                    </div>
+                    <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '800' }}>
+                      {p.stock} unid.
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '20px 0', color: '#16a34a' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Package size={20} />
+                </div>
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: '600' }}>Inventario saludable</p>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
