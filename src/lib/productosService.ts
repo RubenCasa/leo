@@ -387,6 +387,49 @@ export const fetchTodosPedidos = async () => {
 };
 
 /**
+ * Actualiza el estado de un pedido en la base de datos y localmente (admin).
+ */
+export const updatePedidoEstado = async (
+  pedidoId: number,
+  numeroPedido: string,
+  nuevoEstado: 'completado' | 'pendiente' | 'cancelado'
+): Promise<void> => {
+  // 1. Actualizar en Supabase
+  const { error } = await supabase
+    .from('pedidos')
+    .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
+    .eq('id', pedidoId);
+
+  if (error) {
+    console.warn('[ProductosService] No se pudo actualizar en Supabase (o es pedido local):', error.message);
+  }
+
+  // 2. Actualizar también en el historial local si coincide por ID o Número de Pedido
+  try {
+    const rawLocal = localStorage.getItem('lacteos_leo_comprobantes');
+    if (rawLocal) {
+      const locales: Array<any> = JSON.parse(rawLocal);
+      let cambiado = false;
+      locales.forEach(comp => {
+        if (
+          (comp.orderId && comp.orderId === pedidoId) ||
+          (comp.orderNumber && comp.orderNumber === numeroPedido)
+        ) {
+          comp.status = nuevoEstado;
+          comp.estado = nuevoEstado;
+          cambiado = true;
+        }
+      });
+      if (cambiado) {
+        localStorage.setItem('lacteos_leo_comprobantes', JSON.stringify(locales));
+      }
+    }
+  } catch (err) {
+    console.warn('[ProductosService] Error al actualizar estado en localStorage:', err);
+  }
+};
+
+/**
  * Obtener estadísticas resumidas para el dashboard.
  */
 export const fetchEstadisticasDashboard = async () => {

@@ -72,7 +72,8 @@ export const Checkout: React.FC = () => {
       setFormData(prev => ({
         ...prev,
         name: prev.name || user.name,
-        email: prev.email || user.email
+        email: prev.email || user.email,
+        idNumber: prev.idNumber || (user.cedula && user.cedula !== 'N/A' ? user.cedula : '')
       }));
     }
   }, [user]);
@@ -143,12 +144,16 @@ export const Checkout: React.FC = () => {
       return;
     }
 
-    // Validación oficial SRI / Registro Civil de Cédula o RUC
+    // Validación oficial SRI / Registro Civil de Cédula o RUC (Estricta y Obligatoria)
     const idClean = formData.idNumber.trim();
-    if (idClean && idClean !== '9999999999999' && idClean !== '9999999999') {
+    if (!idClean) {
+      alert('❌ Cédula de Identidad o RUC Obligatorio:\n\nPor favor ingresa tu número real de Cédula (10 dígitos) o RUC (13 dígitos) para generar tu factura electrónica.');
+      return;
+    }
+    if (idClean !== '9999999999999') {
       const idVal = validarIdentificacion(idClean);
       if (!idVal.isValid) {
-        alert(`❌ Verificación SRI de Identidad Fallida:\n\nEl número ingresado "${idClean}" no supera el algoritmo oficial Módulo 10 del Registro Civil y SRI (${idVal.error}).\n\nPor favor corrige tu Cédula (10 dígitos) o RUC (13 dígitos) o ingresa "9999999999999" para Consumidor Final.`);
+        alert(`❌ Verificación Oficial SRI y Registro Civil Fallida:\n\nEl número ingresado "${idClean}" NO es una Cédula ni RUC real (${idVal.error}).\n\nEl sistema rechaza identificaciones inventadas o falsas. Por favor ingresa tu Cédula verdadera de 10 dígitos o RUC de 13 dígitos.`);
         return;
       }
     }
@@ -541,7 +546,7 @@ export const Checkout: React.FC = () => {
                   onChange={handleInputChange}
                   style={{
                     borderColor: formData.idNumber.trim()
-                      ? validarIdentificacion(formData.idNumber.trim()).isValid || formData.idNumber.trim() === '9999999999999' || formData.idNumber.trim() === '9999999999'
+                      ? validarIdentificacion(formData.idNumber.trim()).isValid || formData.idNumber.trim() === '9999999999999'
                         ? '#16a34a'
                         : '#ef4444'
                       : undefined
@@ -549,7 +554,7 @@ export const Checkout: React.FC = () => {
                 />
                 {formData.idNumber.trim() && (
                   <div style={{ fontSize: '12px', marginTop: '4px', fontWeight: 600 }}>
-                    {formData.idNumber.trim() === '9999999999999' || formData.idNumber.trim() === '9999999999' ? (
+                    {formData.idNumber.trim() === '9999999999999' ? (
                       <span style={{ color: '#16a34a' }}>✅ Consumidor Final (Autorizado SRI)</span>
                     ) : validarIdentificacion(formData.idNumber.trim()).isValid ? (
                       <span style={{ color: '#16a34a' }}>

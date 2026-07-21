@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTodosPedidos } from '../../lib/productosService';
+import { fetchTodosPedidos, updatePedidoEstado } from '../../lib/productosService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FileDown, FileText, Search, X, Filter, TrendingUp, ShoppingBag, DollarSign } from 'lucide-react';
@@ -92,6 +92,15 @@ export const AdminReports: React.FC = () => {
       console.error('Error cargando pedidos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEstadoChange = async (pedidoId: number, numeroPedido: string, nuevoEstado: 'completado' | 'pendiente' | 'cancelado') => {
+    try {
+      await updatePedidoEstado(pedidoId, numeroPedido, nuevoEstado);
+      setPedidos(prev => prev.map(p => p.id === pedidoId ? { ...p, estado: nuevoEstado } : p));
+    } catch (err) {
+      console.error('Error al actualizar el estado del pedido:', err);
     }
   };
 
@@ -393,21 +402,29 @@ export const AdminReports: React.FC = () => {
                   </span>
                 </td>
                 <td>
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: pedido.estado === 'completado' ? '#166534' : pedido.estado === 'pendiente' ? '#b45309' : '#991b1b',
-                    background: pedido.estado === 'completado' ? '#dcfce7' : pedido.estado === 'pendiente' ? '#fef3c7' : '#fee2e2',
-                    padding: '4px 10px',
-                    borderRadius: '20px',
-                    textTransform: 'uppercase'
-                  }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: pedido.estado === 'completado' ? '#16a34a' : pedido.estado === 'pendiente' ? '#f59e0b' : '#ef4444' }}></span>
-                    {pedido.estado}
-                  </span>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: pedido.estado === 'completado' ? '#16a34a' : pedido.estado === 'pendiente' ? '#f59e0b' : '#ef4444', flexShrink: 0 }}></span>
+                    <select
+                      value={pedido.estado}
+                      onChange={e => handleEstadoChange(pedido.id, pedido.numero_pedido, e.target.value as any)}
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: pedido.estado === 'completado' ? '#166534' : pedido.estado === 'pendiente' ? '#b45309' : '#991b1b',
+                        background: pedido.estado === 'completado' ? '#dcfce7' : pedido.estado === 'pendiente' ? '#fef3c7' : '#fee2e2',
+                        padding: '4px 8px',
+                        borderRadius: '20px',
+                        textTransform: 'uppercase',
+                        border: '1px solid transparent',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="completado" style={{ background: '#fff', color: '#166534', fontWeight: 700 }}>COMPLETADO</option>
+                      <option value="pendiente" style={{ background: '#fff', color: '#b45309', fontWeight: 700 }}>PENDIENTE</option>
+                      <option value="cancelado" style={{ background: '#fff', color: '#991b1b', fontWeight: 700 }}>CANCELADO</option>
+                    </select>
+                  </div>
                 </td>
                 <td style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>
                   {new Date(pedido.created_at).toLocaleDateString('es-EC')}
