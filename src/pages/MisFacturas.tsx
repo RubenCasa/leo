@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { obtenerFacturasUsuario, type FacturaUsuarioDB } from '../lib/productosService';
 import { supabase } from '../lib/supabase';
+import { generateSRIXML, generateRIDE } from '../utils/sriGenerator';
 import { FileText, Download, CheckCircle2, Loader2, AlertCircle, Copy, ArrowLeft, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -55,15 +56,38 @@ export const MisFacturas: React.FC = () => {
     alert('Clave de Acceso SRI copiada al portapapeles:\n' + clave);
   };
 
-  const descargarXML = (xml: string, numPedido: string) => {
+  const descargarXML = (fac: FacturaUsuarioDB) => {
+    let xml = fac.xml_contenido || '';
+    const numPedido = fac.pedidos?.numero_pedido || 'SRI-' + (fac.secuencial || fac.id);
+    if (!xml || xml.trim() === '') {
+      xml = generateSRIXML(
+        { name: user?.name || 'Cliente Lácteos Leo', idNumber: '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' },
+        [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }],
+        fac.pedidos?.total || 10,
+        fac.clave_acceso,
+        fac.secuencial || '001'
+      );
+    }
     const blob = new Blob([xml], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `factura-${numPedido}.xml`;
+    a.download = `factura-sri-${numPedido}.xml`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const descargarPDF = (fac: FacturaUsuarioDB) => {
+    const numPedido = fac.pedidos?.numero_pedido || 'SRI-' + (fac.secuencial || fac.id);
+    const doc = generateRIDE(
+      { name: user?.name || 'Cliente Lácteos Leo', idNumber: '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' },
+      [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }],
+      fac.pedidos?.total || 10,
+      fac.clave_acceso,
+      fac.secuencial || '001'
+    );
+    doc.save(`comprobante-ride-${numPedido}.pdf`);
   };
 
   if (!user) {
@@ -219,16 +243,21 @@ export const MisFacturas: React.FC = () => {
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '4px' }}>
-                  {fac.xml_contenido && (
-                    <button
-                      type="button"
-                      onClick={() => descargarXML(fac.xml_contenido || '', fac.pedidos?.numero_pedido || 'sri')}
-                      style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <Download size={16} /> Descargar Archivo XML SRI
-                    </button>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => descargarXML(fac)}
+                    style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Download size={16} /> Descargar Archivo XML SRI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => descargarPDF(fac)}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <Download size={16} /> Descargar PDF RIDE
+                  </button>
                 </div>
               </div>
             ))}

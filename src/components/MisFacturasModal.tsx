@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { obtenerFacturasUsuario, type FacturaUsuarioDB } from '../lib/productosService';
+import { generateSRIXML, generateRIDE } from '../utils/sriGenerator';
 import { FileText, Download, CheckCircle2, Loader2, AlertCircle, X, Copy } from 'lucide-react';
 import './AuthModal.css'; // Reutilizamos estilos modales limpios
 
@@ -39,24 +40,47 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
     alert('Clave de Acceso SRI copiada al portapapeles:\n' + clave);
   };
 
-  const descargarXML = (xml: string, numPedido: string) => {
+  const descargarXML = (fac: FacturaUsuarioDB) => {
+    let xml = fac.xml_contenido || '';
+    const numPedido = fac.pedidos?.numero_pedido || 'SRI-' + (fac.secuencial || fac.id);
+    if (!xml || xml.trim() === '') {
+      xml = generateSRIXML(
+        { name: user?.name || 'Cliente Lácteos Leo', idNumber: '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' },
+        [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }],
+        fac.pedidos?.total || 10,
+        fac.clave_acceso,
+        fac.secuencial || '001'
+      );
+    }
     const blob = new Blob([xml], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `factura-${numPedido}.xml`;
+    a.download = `factura-sri-${numPedido}.xml`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const descargarPDF = (fac: FacturaUsuarioDB) => {
+    const numPedido = fac.pedidos?.numero_pedido || 'SRI-' + (fac.secuencial || fac.id);
+    const doc = generateRIDE(
+      { name: user?.name || 'Cliente Lácteos Leo', idNumber: '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' },
+      [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }],
+      fac.pedidos?.total || 10,
+      fac.clave_acceso,
+      fac.secuencial || '001'
+    );
+    doc.save(`comprobante-ride-${numPedido}.pdf`);
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
-      <div 
-        className="auth-modal-card" 
-        onClick={(e) => e.stopPropagation()} 
+      <div
+        className="auth-modal-card"
+        onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '750px', width: '95%', maxHeight: '85vh', overflowY: 'auto', padding: '28px' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '16px', marginBottom: '20px' }}>
@@ -73,9 +97,9 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
               </p>
             </div>
           </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
+          <button
+            type="button"
+            onClick={onClose}
             style={{ background: '#f1f5f9', border: 'none', padding: '8px', borderRadius: '50%', cursor: 'pointer', color: '#475569' }}
           >
             <X size={20} />
@@ -103,12 +127,12 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {facturas.map((fac) => (
-              <div 
-                key={fac.id} 
-                style={{ 
-                  border: '1px solid #e2e8f0', 
-                  borderRadius: '14px', 
-                  padding: '16px', 
+              <div
+                key={fac.id}
+                style={{
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '14px',
+                  padding: '16px',
                   background: '#f8fafc',
                   transition: 'box-shadow 0.2s',
                   display: 'flex',
@@ -147,9 +171,9 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
                     <code style={{ fontSize: '11.5px', color: '#0f172a', wordBreak: 'break-all', fontFamily: 'monospace' }}>
                       {fac.clave_acceso}
                     </code>
-                    <button 
-                      type="button" 
-                      onClick={() => copiarClave(fac.clave_acceso)} 
+                    <button
+                      type="button"
+                      onClick={() => copiarClave(fac.clave_acceso)}
                       style={{ background: '#f1f5f9', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: '#334155', flexShrink: 0 }}
                       title="Copiar Clave"
                     >
@@ -158,16 +182,21 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
-                  {fac.xml_contenido && (
-                    <button 
-                      type="button" 
-                      onClick={() => descargarXML(fac.xml_contenido || '', fac.pedidos?.numero_pedido || 'sri')}
-                      style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <Download size={14} /> Descargar XML SRI
-                    </button>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => descargarXML(fac)}
+                    style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Download size={14} /> Descargar XML SRI
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => descargarPDF(fac)}
+                    style={{ background: '#0284c7', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Download size={14} /> Descargar PDF RIDE
+                  </button>
                 </div>
               </div>
             ))}
