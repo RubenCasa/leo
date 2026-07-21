@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { generateSRIXML, generateRIDE, generarClaveYSecuencialUnicos } from '../utils/sriGenerator';
 import { sendComprobanteEmailViaSupabase, type OrderComprobante } from '../lib/supabase';
 import { crearPedidoCompleto, guardarComprobanteSRI } from '../lib/productosService';
+import { checkRateLimit, resetRateLimit, sanitizeInput } from '../utils/security';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
@@ -134,6 +135,13 @@ export const Checkout: React.FC = () => {
       return;
     }
 
+    // Rate Limit Check anti card-testing / spam de pagos en el Checkout (máx 5 transacciones en 60 seg)
+    const rateCheck = checkRateLimit('checkout_submit', 5, 60);
+    if (!rateCheck.allowed) {
+      alert(`❌ Demasiados intentos de pago. Por protección anti-fraude y bloqueo de tarjeta, espera ${rateCheck.remainingSeconds} segundos antes de volver a intentar.`);
+      return;
+    }
+
     // Validación de tarjeta si el método es tarjeta
     if (paymentMethod === 'card') {
       const cleanNum = cardData.cardNumber.replace(/\D/g, '');
@@ -210,31 +218,39 @@ export const Checkout: React.FC = () => {
     // Generar Clave de Acceso y Secuencial SRI Únicos para esta transacción
     const { claveAcceso, secuencial } = generarClaveYSecuencialUnicos();
 
+    // Sanitizar entradas del comprador para evitar inyección en XML/PDF
+    const cleanCustomer = {
+      ...formData,
+      name: sanitizeInput(formData.name),
+      address: sanitizeInput(formData.address),
+      email: sanitizeInput(formData.email)
+    };
+
     // Generate SRI XML
-    const xml = generateSRIXML(formData, items, total, claveAcceso, secuencial);
+    const xml = generateSRIXML(cleanCustomer, items, total, claveAcceso, secuencial);
     const xmlBlob = new Blob([xml], { type: 'application/xml' });
     const xmlUrl = URL.createObjectURL(xmlBlob);
     
     const xmlLink = document.createElement('a');
     xmlLink.href = xmlUrl;
-    xmlLink.download = `factura-sri-${formData.idNumber || 'LEO'}.xml`;
+    xmlLink.download = `factura-sri-${cleanCustomer.idNumber || 'LEO'}.xml`;
     document.body.appendChild(xmlLink);
     xmlLink.click();
     document.body.removeChild(xmlLink);
 
     // Generate RIDE PDF
-    const pdfDoc = generateRIDE(formData, items, total, claveAcceso, secuencial);
-    pdfDoc.save(`factura-ride-${formData.idNumber || 'LEO'}.pdf`);
+    const pdfDoc = generateRIDE(cleanCustomer, items, total, claveAcceso, secuencial);
+    pdfDoc.save(`factura-ride-${cleanCustomer.idNumber || 'LEO'}.pdf`);
 
     // Create & send Comprobante via Supabase API (Resend)
     const orderNumber = `LEO-${Math.floor(100000 + Math.random() * 900000)}`;
     const comprobante: OrderComprobante = {
       id: `ord_${Date.now()}`,
       orderNumber,
-      customerName: formData.name,
-      customerEmail: formData.email,
+      customerName: cleanCustomer.name,
+      customerEmail: cleanCustomer.email,
       userId: user?.id,
-      items: items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price })),
+      items: items.map(i => ({ name: sanitizeInput(i.name), quantity: i.quantity, price: i.price })),
       totalAmount: total,
       date: new Date().toISOString(),
       status: 'completado',
@@ -252,7 +268,7 @@ export const Checkout: React.FC = () => {
           auth_code: authCode,
           items: items.map(i => ({
             producto_id: typeof i.id === 'number' ? i.id : parseInt(String(i.id), 10) || 1,
-            nombre_producto: i.name,
+            nombre_producto: sanitizeInput(i.name),
             cantidad: i.quantity,
             precio_unitario: i.price,
             subtotal: Number((i.price * i.quantity).toFixed(2))
@@ -267,6 +283,7 @@ export const Checkout: React.FC = () => {
 
     const result = await sendComprobanteEmailViaSupabase(comprobante);
 
+    resetRateLimit('checkout_submit');
     setProcessingState({ status: 'idle', message: '' });
 
     alert(`¡Transacción Bancaria Exitosamente Procesada y Verificada en Ecuador!\n\n• Pasarela: ${gatewayProvider.toUpperCase()} ECUADOR (PCI-DSS Nivel 1)\n• Seguridad: EMVCo 3D Secure 2.0 Aprobado\n• Aut Banco: ${authCode}\n• Pedido: #${orderNumber}\n\nFacturas electrónicas XML y PDF descargadas y guardadas en tu apartado de Mis Facturas (Supabase).\n${result.message}`);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { supabase, signUpWithEmail, signInWithEmail, signInWithGoogle } from '../lib/supabase';
+import { checkRateLimit, resetRateLimit, sanitizeInput } from '../utils/security';
 
 export type UserRole = 'administrador' | 'vendedor' | 'cliente';
 
@@ -333,30 +334,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (name: string, email: string, password: string, cedula?: string, phone?: string): Promise<boolean> => {
     setAuthError('');
     setAuthSuccess('');
+
+    const cleanEmail = sanitizeInput(email).toLowerCase();
+    const cleanName = sanitizeInput(name);
+
+    // Rate limit check: máx 4 registros por minuto para evitar spam o ataques DDoS de cuentas
+    const rateCheck = checkRateLimit('auth_register', 4, 60);
+    if (!rateCheck.allowed) {
+      setAuthError(`❌ Demasiados intentos de registro. Por seguridad del sistema, espera ${rateCheck.remainingSeconds} segundos antes de volver a intentar.`);
+      return false;
+    }
+
     try {
-      const data = await signUpWithEmail(email, password, { name, phone: phone || '', cedula: cedula || '' });
+      const data = await signUpWithEmail(cleanEmail, password, { name: cleanName, phone: phone || '', cedula: cedula || '' });
 
       // Guardar el correo como registrado
-      saveRegisteredEmail(email);
+      saveRegisteredEmail(cleanEmail);
 
       // Al estar "Confirm email" desactivado, entra instantáneamente
       if (data.session?.user || data.user) {
+        resetRateLimit('auth_register');
         const userId = data.session?.user?.id || data.user?.id || '';
         
         // Determinar rol: admin automático si es el correo configurado
-        const esAdmin = isAdminEmail(email);
+        const esAdmin = isAdminEmail(cleanEmail);
         const rolAsignar = esAdmin ? 1 : 3;
         const rolNombre: UserRole = esAdmin ? 'administrador' : 'cliente';
 
         // Crear registro en tabla usuarios
         if (userId) {
-          await upsertUsuario(userId, name, email, cedula, phone);
+          await upsertUsuario(userId, cleanName, cleanEmail, cedula, phone);
         }
 
         const newUser: User = {
           id: userId,
-          name: name,
-          email: email,
+          name: cleanName,
+          email: cleanEmail,
           phone: phone || '',
           cedula: cedula || '',
           provider: 'Correo',
@@ -388,21 +401,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<boolean> => {
     setAuthError('');
     setAuthSuccess('');
+
+    const cleanEmail = sanitizeInput(email).toLowerCase();
+
+    // Rate limit check: máx 5 intentos de login en 60 segundos contra ataques de fuerza bruta
+    const rateCheck = checkRateLimit(`auth_login_${cleanEmail}`, 5, 60);
+    if (!rateCheck.allowed) {
+      setAuthError(`❌ Demasiados intentos fallidos de inicio de sesión. Por protección contra ataques, espera ${rateCheck.remainingSeconds} segundos antes de volver a intentar.`);
+      return false;
+    }
+
     try {
-      const data = await signInWithEmail(email, password);
+      const data = await signInWithEmail(cleanEmail, password);
       if (data.user && data.user.id) {
         // Verificar que el usuario realmente esté registrado en Lácteos Leo
-        const existe = await checkUserExistsInDatabase(data.user.id, email);
+        const existe = await checkUserExistsInDatabase(data.user.id, cleanEmail);
         if (!existe) {
           try { await supabase.auth.signOut(); } catch { /* silenciar */ }
-          setAuthError(`❌ No existe una cuenta registrada en Lácteos Leo con el correo (${email}). Por favor, cambia a la pestaña "Registrarse" para crear tu cuenta.`);
+          setAuthError(`❌ No existe una cuenta registrada en Lácteos Leo con el correo (${cleanEmail}). Por favor, cambia a la pestaña "Registrarse" para crear tu cuenta.`);
           return false;
         }
 
-        saveRegisteredEmail(email);
+        resetRateLimit(`auth_login_${cleanEmail}`);
+        saveRegisteredEmail(cleanEmail);
         const userObj = await buildUserFromSession(data.user);
-        await upsertUsuario(data.user.id, userObj.name, email);
-        if (isAdminEmail(email)) {
+        await upsertUsuario(data.user.id, userObj.name, cleanEmail);
+        if (isAdminEmail(cleanEmail)) {
           userObj.role = 'administrador';
           userObj.rolId = 1;
         }

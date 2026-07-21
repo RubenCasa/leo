@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CartItem } from '../context/CartContext';
 import { generarClaveAccesoSRI, obtenerSiguienteSecuencial } from './sriAccessKey';
+import { escapeXML } from './security';
 
 interface CustomerInfo {
   name: string;
@@ -71,8 +72,8 @@ export const generateSRIXML = (
   items.forEach(item => {
     detallesXML += `
       <detalle>
-        <codigoPrincipal>${item.id}</codigoPrincipal>
-        <descripcion>${item.name}</descripcion>
+        <codigoPrincipal>${escapeXML(String(item.id))}</codigoPrincipal>
+        <descripcion>${escapeXML(item.name)}</descripcion>
         <cantidad>${item.quantity}</cantidad>
         <precioUnitario>${item.price.toFixed(2)}</precioUnitario>
         <descuento>0.00</descuento>
@@ -95,24 +96,24 @@ export const generateSRIXML = (
   <infoTributaria>
     <ambiente>${EMPRESA.ambiente}</ambiente>
     <tipoEmision>1</tipoEmision>
-    <razonSocial>${EMPRESA.razonSocial}</razonSocial>
-    <nombreComercial>${EMPRESA.nombreComercial}</nombreComercial>
+    <razonSocial>${escapeXML(EMPRESA.razonSocial)}</razonSocial>
+    <nombreComercial>${escapeXML(EMPRESA.nombreComercial)}</nombreComercial>
     <ruc>${EMPRESA.ruc}</ruc>
     <claveAcceso>${claveAcceso}</claveAcceso>
     <codDoc>01</codDoc>
     <estab>${EMPRESA.establecimiento}</estab>
     <ptoEmi>${EMPRESA.puntoEmision}</ptoEmi>
     <secuencial>${secuencial}</secuencial>
-    <dirMatriz>${EMPRESA.direccion}</dirMatriz>
+    <dirMatriz>${escapeXML(EMPRESA.direccion)}</dirMatriz>
   </infoTributaria>
   <infoFactura>
     <fechaEmision>${dateStr}</fechaEmision>
-    <dirEstablecimiento>${EMPRESA.direccion}</dirEstablecimiento>
+    <dirEstablecimiento>${escapeXML(EMPRESA.direccion)}</dirEstablecimiento>
     <obligadoContabilidad>SI</obligadoContabilidad>
     <tipoIdentificacionComprador>${tipoIdentificacion}</tipoIdentificacionComprador>
-    <razonSocialComprador>${customerInfo.name}</razonSocialComprador>
-    <identificacionComprador>${customerInfo.idNumber}</identificacionComprador>
-    <direccionComprador>${customerInfo.address}</direccionComprador>
+    <razonSocialComprador>${escapeXML(customerInfo.name)}</razonSocialComprador>
+    <identificacionComprador>${escapeXML(customerInfo.idNumber)}</identificacionComprador>
+    <direccionComprador>${escapeXML(customerInfo.address)}</direccionComprador>
     <totalSinImpuestos>${total.toFixed(2)}</totalSinImpuestos>
     <totalDescuento>0.00</totalDescuento>
     <totalConImpuestos>
@@ -139,7 +140,7 @@ export const generateSRIXML = (
     ${detallesXML}
   </detalles>
   <infoAdicional>
-    <campoAdicional nombre="Email">${customerInfo.email}</campoAdicional>
+    <campoAdicional nombre="Email">${escapeXML(customerInfo.email)}</campoAdicional>
   </infoAdicional>
 </factura>`;
 
