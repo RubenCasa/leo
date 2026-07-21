@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { generateSRIXML, generateRIDE, generarClaveYSecuencialUnicos } from '../utils/sriGenerator';
-import { sendComprobanteEmailViaSupabase, type OrderComprobante } from '../lib/supabase';
+import { sendComprobanteEmailViaSupabase, supabase, type OrderComprobante } from '../lib/supabase';
 import { crearPedidoCompleto, guardarComprobanteSRI } from '../lib/productosService';
 import { checkRateLimit, resetRateLimit, sanitizeInput } from '../utils/security';
 import { useNavigate } from 'react-router-dom';
@@ -243,12 +243,15 @@ export const Checkout: React.FC = () => {
     pdfDoc.save(`factura-ride-${cleanCustomer.idNumber || 'LEO'}.pdf`);
 
     // Create & send Comprobante via Supabase API (Resend)
+    // Create & send Comprobante via Supabase API (Resend)
     const orderNumber = `LEO-${Math.floor(100000 + Math.random() * 900000)}`;
     const comprobante: OrderComprobante = {
       id: `ord_${Date.now()}`,
       orderNumber,
       customerName: cleanCustomer.name,
       customerEmail: cleanCustomer.email,
+      customerIdNumber: cleanCustomer.idNumber,
+      cedula: cleanCustomer.idNumber,
       userId: user?.id,
       items: items.map(i => ({ name: sanitizeInput(i.name), quantity: i.quantity, price: i.price })),
       totalAmount: total,
@@ -260,6 +263,11 @@ export const Checkout: React.FC = () => {
     // 1. Guardar pedido en base de datos Supabase e historial (si usuario ha iniciado sesión)
     if (user?.id) {
       try {
+        // Asegurar que la cédula del cliente quede guardada en su perfil de la tabla usuarios
+        if (cleanCustomer.idNumber) {
+          await supabase.from('usuarios').update({ cedula: cleanCustomer.idNumber }).eq('id', user.id);
+        }
+
         const pedidoId = await crearPedidoCompleto({
           usuario_id: user.id,
           numero_pedido: orderNumber,

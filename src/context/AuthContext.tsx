@@ -117,6 +117,16 @@ const upsertUsuario = async (
   telefono?: string
 ) => {
   try {
+    // Consultar usuario existente para preservar rol, cédula o teléfono si no se pasan en este llamado
+    const { data: existingUser } = await supabase
+      .from('usuarios')
+      .select('rol_id, cedula, telefono')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const finalCedula = cedula || existingUser?.cedula || null;
+    const finalTelefono = telefono || existingUser?.telefono || null;
+
     // Si es el correo de admin, forzar rol_id = 1
     if (isAdminEmail(email)) {
       const { error } = await supabase
@@ -125,8 +135,8 @@ const upsertUsuario = async (
           id: userId,
           nombre,
           email,
-          cedula: cedula || null,
-          telefono: telefono || null,
+          cedula: finalCedula,
+          telefono: finalTelefono,
           rol_id: 1, // 🛡️ ADMINISTRADOR
           activo: true
         }, { onConflict: 'id' });
@@ -137,13 +147,6 @@ const upsertUsuario = async (
       return;
     }
 
-    // Para usuarios normales: mantener el rol existente o asignar cliente
-    const { data: existingUser } = await supabase
-      .from('usuarios')
-      .select('rol_id')
-      .eq('id', userId)
-      .maybeSingle();
-
     const rolToAssign = existingUser?.rol_id || 3;
 
     const { error } = await supabase
@@ -152,8 +155,8 @@ const upsertUsuario = async (
         id: userId,
         nombre,
         email,
-        cedula: cedula || null,
-        telefono: telefono || null,
+        cedula: finalCedula,
+        telefono: finalTelefono,
         rol_id: rolToAssign,
         activo: true
       }, { onConflict: 'id' });

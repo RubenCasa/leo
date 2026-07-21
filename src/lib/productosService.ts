@@ -373,7 +373,8 @@ export const fetchTodosPedidos = async () => {
     .select(`
       *,
       usuarios (nombre, email, cedula),
-      detalle_pedidos (*)
+      detalle_pedidos (*),
+      comprobantes_sri (clave_acceso, xml_contenido)
     `)
     .order('created_at', { ascending: false });
 

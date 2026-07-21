@@ -86,6 +86,8 @@ export interface OrderComprobante {
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
+  customerIdNumber?: string;
+  cedula?: string;
   userId?: string;
   items: Array<{
     name: string;

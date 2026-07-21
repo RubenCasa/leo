@@ -18,7 +18,60 @@ interface PedidoReport {
     precio_unitario: number;
     subtotal: number;
   }>;
+  comprobantes_sri?: Array<{
+    clave_acceso?: string;
+    xml_contenido?: string;
+  }>;
+  cedula_cliente?: string;
+  identificacion_cliente?: string;
+  usuario_id?: string;
 }
+
+/**
+ * Obtiene la Cédula/RUC de un pedido buscando en múltiples fuentes:
+ * 1. Perfil del usuario (tabla usuarios)
+ * 2. XML oficial del SRI guardado (tabla comprobantes_sri)
+ * 3. Campos del pedido directo
+ * 4. Historial local de comprobantes
+ */
+const obtenerCedulaPedido = (pedido: PedidoReport): string => {
+  if (pedido.usuarios?.cedula && pedido.usuarios.cedula.trim() !== '' && pedido.usuarios.cedula !== 'N/A') {
+    return pedido.usuarios.cedula;
+  }
+  if (pedido.cedula_cliente && pedido.cedula_cliente.trim() !== '') {
+    return pedido.cedula_cliente;
+  }
+  if (pedido.identificacion_cliente && pedido.identificacion_cliente.trim() !== '') {
+    return pedido.identificacion_cliente;
+  }
+  if (pedido.comprobantes_sri && pedido.comprobantes_sri.length > 0) {
+    const xml = pedido.comprobantes_sri[0].xml_contenido;
+    if (xml) {
+      const match = xml.match(/<identificacionComprador>([^<]+)<\/identificacionComprador>/);
+      if (match && match[1] && match[1].trim() !== '') {
+        const idExtracted = match[1].trim();
+        return idExtracted === '9999999999999' ? '9999999999 (C. Final)' : idExtracted;
+      }
+    }
+  }
+  try {
+    const raw = localStorage.getItem('lacteos_leo_comprobantes');
+    if (raw) {
+      const comprobantes = JSON.parse(raw);
+      const match = comprobantes.find((c: any) => 
+        c.orderNumber === pedido.numero_pedido || 
+        (pedido.usuario_id && c.userId === pedido.usuario_id)
+      );
+      if (match && (match.customerIdNumber || match.idNumber || match.cedula)) {
+        const idLocal = (match.customerIdNumber || match.idNumber || match.cedula).trim();
+        return idLocal === '9999999999999' ? '9999999999 (C. Final)' : idLocal;
+      }
+    }
+  } catch {
+    // ignorar error de localStorage
+  }
+  return '9999999999 (C. Final)';
+};
 
 export const AdminReports: React.FC = () => {
   const [pedidos, setPedidos] = useState<PedidoReport[]>([]);
@@ -91,7 +144,7 @@ export const AdminReports: React.FC = () => {
       p.numero_pedido,
       p.usuarios?.nombre || 'N/A',
       p.usuarios?.email || 'N/A',
-      p.usuarios?.cedula || 'N/A',
+      obtenerCedulaPedido(p),
       p.total.toFixed(2),
       p.metodo_pago || 'N/A',
       p.estado,
@@ -144,7 +197,7 @@ export const AdminReports: React.FC = () => {
     const tableData = filteredPedidos.map(p => [
       p.numero_pedido,
       p.usuarios?.nombre || 'N/A',
-      p.usuarios?.cedula || 'N/A',
+      obtenerCedulaPedido(p),
       '$' + p.total.toFixed(2),
       p.metodo_pago || 'N/A',
       p.estado,
@@ -329,7 +382,7 @@ export const AdminReports: React.FC = () => {
                   <div style={{ fontSize: '12px', color: '#64748b' }}>{pedido.usuarios?.email || ''}</div>
                 </td>
                 <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#475569' }}>
-                  {pedido.usuarios?.cedula || '—'}
+                  {obtenerCedulaPedido(pedido)}
                 </td>
                 <td style={{ fontWeight: 800, color: '#16a34a', fontSize: '15px' }}>
                   ${Number(pedido.total).toFixed(2)}
