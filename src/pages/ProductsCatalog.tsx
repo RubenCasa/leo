@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Search, ShoppingCart, Check, Plus, Minus, ArrowRight } from 'lucide-react';
+import { fetchProductos, type ProductoDB } from '../lib/productosService';
 import './ProductsCatalog.css';
 import principalImg from '../assets/principal.png';
 
@@ -15,6 +16,8 @@ export interface CatalogItem {
   category: 'quesos' | 'yogures' | 'bebidas' | 'especiales';
   badge?: string;
   image: string;
+  stock?: number;
+  dbId?: number;
 }
 
 const LACTEOS_LEO_CATALOG: CatalogItem[] = [
@@ -264,9 +267,23 @@ export const ProductsCatalog: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [dbProducts, setDbProducts] = useState<ProductoDB[]>([]);
+
+  const loadLiveStock = async () => {
+    try {
+      const data = await fetchProductos();
+      setDbProducts(data);
+    } catch (e) {
+      console.error('Error cargando stock real en catálogo:', e);
+    }
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    loadLiveStock();
+    const handleStockUpdate = () => loadLiveStock();
+    window.addEventListener('lacteos_leo_stock_updated', handleStockUpdate);
+    return () => window.removeEventListener('lacteos_leo_stock_updated', handleStockUpdate);
   }, []);
 
   const showToast = (message: string) => {
@@ -276,8 +293,33 @@ export const ProductsCatalog: React.FC = () => {
     }, 3000);
   };
 
+  const mergedCatalog = useMemo(() => {
+    return LACTEOS_LEO_CATALOG.map(staticItem => {
+      const matched = dbProducts.find(p => 
+        p.nombre.toLowerCase().trim() === staticItem.name.toLowerCase().trim() ||
+        staticItem.name.toLowerCase().includes(p.nombre.toLowerCase()) ||
+        p.nombre.toLowerCase().includes(staticItem.name.toLowerCase()) ||
+        String(p.id) === staticItem.id ||
+        p.codigo === staticItem.id
+      );
+      if (matched) {
+        return {
+          ...staticItem,
+          id: String(matched.id),
+          price: matched.precio,
+          stock: matched.stock,
+          dbId: matched.id
+        };
+      }
+      return {
+        ...staticItem,
+        stock: 30 // stock inicial por defecto
+      };
+    });
+  }, [dbProducts]);
+
   const filteredCatalog = useMemo(() => {
-    return LACTEOS_LEO_CATALOG.filter((item) => {
+    return mergedCatalog.filter((item) => {
       const matchesCategory =
         selectedCategory === 'all' || item.category === selectedCategory;
       const matchesSearch =
@@ -286,7 +328,7 @@ export const ProductsCatalog: React.FC = () => {
         item.desc.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, mergedCatalog]);
 
   const totalItemsCount = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
@@ -418,10 +460,33 @@ export const ProductsCatalog: React.FC = () => {
                     </span>
                     <span className="catalog-price-unit">{product.unit}</span>
                   </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: (product.stock ?? 30) <= 5 ? '#fef2f2' : '#f0fdf4',
+                      color: (product.stock ?? 30) <= 5 ? '#dc2626' : '#166534',
+                      border: `1px solid ${(product.stock ?? 30) <= 5 ? '#fecaca' : '#bbf7d0'}`
+                    }}>
+                      {(product.stock ?? 30) > 0 ? `Stock: ${product.stock ?? 30} uds` : '¡Agotado!'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="catalog-card-actions">
-                  {!cartItem ? (
+                  {(product.stock ?? 30) <= 0 ? (
+                    <button
+                      type="button"
+                      className="btn-add-catalog font-display"
+                      disabled
+                      style={{ background: '#94a3b8', cursor: 'not-allowed', opacity: 0.7 }}
+                    >
+                      Sin Stock Disponible
+                    </button>
+                  ) : !cartItem ? (
                     <button
                       type="button"
                       className="btn-add-catalog font-display"
@@ -446,10 +511,15 @@ export const ProductsCatalog: React.FC = () => {
                           type="button"
                           className="qty-btn"
                           onClick={() => {
+                            if (cartItem.quantity >= (product.stock ?? 30)) {
+                              showToast(`Límite máximo de stock alcanzado (${product.stock ?? 30} uds)`);
+                              return;
+                            }
                             updateQuantity(product.id, cartItem.quantity + 1);
                             showToast(`+1 ${product.name}`);
                           }}
                           title="Aumentar cantidad"
+                          style={{ opacity: cartItem.quantity >= (product.stock ?? 30) ? 0.4 : 1 }}
                         >
                           <Plus size={16} />
                         </button>
@@ -459,14 +529,20 @@ export const ProductsCatalog: React.FC = () => {
                         type="button"
                         className="btn-add-catalog font-display"
                         onClick={() => {
+                          if (cartItem.quantity >= (product.stock ?? 30)) {
+                            showToast(`Límite máximo de stock alcanzado (${product.stock ?? 30} uds)`);
+                            return;
+                          }
                           updateQuantity(product.id, cartItem.quantity + 1);
                           showToast(`+1 ${product.name} añadido al pedido`);
                         }}
                         style={{
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          background: cartItem.quantity >= (product.stock ?? 30) ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                           color: '#ffffff',
-                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
+                          boxShadow: cartItem.quantity >= (product.stock ?? 30) ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.25)',
+                          cursor: cartItem.quantity >= (product.stock ?? 30) ? 'not-allowed' : 'pointer'
                         }}
+                        disabled={cartItem.quantity >= (product.stock ?? 30)}
                       >
                         <Plus size={16} />
                         + Agregar Más Cantidad

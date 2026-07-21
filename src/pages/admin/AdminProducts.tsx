@@ -39,6 +39,11 @@ export const AdminProducts: React.FC = () => {
 
   useEffect(() => {
     loadProductos();
+    const handleStockUpdate = () => {
+      fetchTodosProductos().then(data => setProductos(data));
+    };
+    window.addEventListener('lacteos_leo_stock_updated', handleStockUpdate);
+    return () => window.removeEventListener('lacteos_leo_stock_updated', handleStockUpdate);
   }, []);
 
   const loadProductos = async () => {
