@@ -101,26 +101,37 @@ ALTER TABLE pedidos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detalle_pedidos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comprobantes_sri ENABLE ROW LEVEL SECURITY;
 
+-- Funciones helper SECURITY DEFINER para verificar roles sin causar recursión RLS
+CREATE OR REPLACE FUNCTION public.es_admin()
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id = 1);
+$$;
+
+CREATE OR REPLACE FUNCTION public.es_admin_o_vendedor()
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id IN (1, 2));
+$$;
+
 -- Productos: lectura para todos, escritura solo admin
 CREATE POLICY "productos_select_all" ON productos FOR SELECT USING (true);
 CREATE POLICY "productos_admin_all" ON productos FOR INSERT
-  WITH CHECK (EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id = 1));
+  WITH CHECK (public.es_admin());
 CREATE POLICY "productos_admin_update" ON productos FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id = 1));
+  USING (public.es_admin());
 CREATE POLICY "productos_admin_delete" ON productos FOR DELETE
-  USING (EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id = 1));
+  USING (public.es_admin());
 
--- Usuarios: cada quien ve su perfil, admin ve todos
+-- Usuarios: cada quien ve su perfil, admin ve todos sin recursión
 CREATE POLICY "usuarios_self_select" ON usuarios FOR SELECT
-  USING (id = auth.uid() OR EXISTS (SELECT 1 FROM usuarios u2 WHERE u2.id = auth.uid() AND u2.rol_id = 1));
+  USING (id = auth.uid() OR public.es_admin());
 CREATE POLICY "usuarios_self_insert" ON usuarios FOR INSERT 
   WITH CHECK (auth.uid() = id OR auth.role() = 'service_role');
 CREATE POLICY "usuarios_admin_update" ON usuarios FOR UPDATE
-  USING (id = auth.uid() OR EXISTS (SELECT 1 FROM usuarios u2 WHERE u2.id = auth.uid() AND u2.rol_id = 1));
+  USING (id = auth.uid() OR public.es_admin());
 
--- Pedidos: usuario ve sus pedidos, admin ve todos
+-- Pedidos: usuario ve sus pedidos, admin y vendedor ven todos
 CREATE POLICY "pedidos_self_select" ON pedidos FOR SELECT
-  USING (usuario_id = auth.uid() OR EXISTS (SELECT 1 FROM usuarios WHERE id = auth.uid() AND rol_id IN (1,2)));
+  USING (usuario_id = auth.uid() OR public.es_admin_o_vendedor());
 CREATE POLICY "pedidos_insert" ON pedidos FOR INSERT 
   WITH CHECK (auth.uid() IS NOT NULL OR auth.role() = 'service_role');
 
