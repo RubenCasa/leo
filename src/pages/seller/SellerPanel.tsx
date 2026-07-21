@@ -3,7 +3,10 @@ import { fetchProductos, crearPedidoCompleto, guardarComprobanteSRI, type Produc
 import { generarClaveYSecuencialUnicos, generateSRIXML } from '../../utils/sriGenerator';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Package, ArrowLeft, RefreshCw, Search, AlertTriangle, CheckCircle, XCircle, ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react';
+import { Package, ArrowLeft, RefreshCw, Search, AlertTriangle, CheckCircle, XCircle, ShoppingCart, Plus, Minus, Trash2, FileDown, UserCheck } from 'lucide-react';
+import { sendComprobanteEmailViaSupabase } from '../../lib/supabase';
+import { validarIdentificacion } from '../../utils/cedulaValidator';
+import { generateRIDE } from '../../utils/sriGenerator';
 
 type TabType = 'todos' | 'bajo' | 'agotado';
 
@@ -25,6 +28,23 @@ export const SellerPanel: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // Datos del Cliente en POS
+  const [customerPOS, setCustomerPOS] = useState({
+    name: 'Consumidor Final',
+    idNumber: '9999999999999',
+    address: 'Latacunga, Cotopaxi',
+    email: 'cliente@lacteosleo.com'
+  });
+  const [requireInvoice, setRequireInvoice] = useState(false);
+  const [lastSale, setLastSale] = useState<{
+    numero_pedido: string;
+    claveAcceso: string;
+    secuencial: string;
+    customer: { name: string; idNumber: string; address: string; email: string };
+    items: CartItem[];
+    total: number;
+  } | null>(null);
   
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -86,6 +106,28 @@ export const SellerPanel: React.FC = () => {
 
   const handleCheckout = async () => {
     if (!user || cart.length === 0) return;
+
+    const finalCustomer = requireInvoice ? {
+      name: customerPOS.name.trim() || 'Consumidor Final',
+      idNumber: customerPOS.idNumber.trim() || '9999999999999',
+      address: customerPOS.address.trim() || 'Latacunga, Cotopaxi',
+      email: customerPOS.email.trim() || 'cliente@lacteosleo.com'
+    } : {
+      name: 'Consumidor Final',
+      idNumber: '9999999999999',
+      address: 'Latacunga, Cotopaxi',
+      email: 'cliente@lacteosleo.com'
+    };
+
+    // Si solicita factura personalizada, validar la Cédula/RUC con SRI (Módulo 10)
+    if (requireInvoice && finalCustomer.idNumber !== '9999999999999') {
+      const idVal = validarIdentificacion(finalCustomer.idNumber);
+      if (!idVal.isValid) {
+        alert(`❌ Error SRI: La Cédula o RUC ingresado para el cliente no supera el algoritmo Módulo 10 (${idVal.error}). Por favor verifica el número o usa 9999999999999 para Consumidor Final.`);
+        return;
+      }
+    }
+
     setIsProcessing(true);
     try {
       const numero_pedido = 'RTA-' + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -102,7 +144,7 @@ export const SellerPanel: React.FC = () => {
 
       // Generar XML SRI y guardar en tabla comprobantes_sri
       const xmlContenido = generateSRIXML(
-        { name: user.name || 'Venta en Ruta / Mostrador', idNumber: '9999999999999', address: 'Ecuador', email: user.email || 'ventas@lacteosleo.com' },
+        finalCustomer,
         cart.map(c => ({ id: String(c.producto_id), name: c.nombre_producto, price: c.precio_unitario, quantity: c.cantidad, desc: 'Lácteos Leo', image: '', category: 'lácteos' })),
         cartTotal,
         claveAcceso,
@@ -115,7 +157,31 @@ export const SellerPanel: React.FC = () => {
         console.warn('No se pudo guardar SRI en la nube, respaldo local guardado', err);
       }
 
-      alert(`✅ Venta y Factura SRI procesadas con éxito.\nN° Pedido: ${numero_pedido}\nClave SRI: ${claveAcceso}`);
+      // Guardar también en el historial local de facturas y enviar por correo si procede
+      await sendComprobanteEmailViaSupabase({
+        id: String(pedidoId || Date.now()),
+        orderNumber: numero_pedido,
+        customerName: finalCustomer.name,
+        customerEmail: finalCustomer.email,
+        customerIdNumber: finalCustomer.idNumber,
+        cedula: finalCustomer.idNumber,
+        userId: user.id as string,
+        items: cart.map(i => ({ name: i.nombre_producto, quantity: i.cantidad, price: i.precio_unitario })),
+        totalAmount: cartTotal,
+        date: new Date().toISOString(),
+        status: 'completado',
+        claveAcceso
+      });
+
+      setLastSale({
+        numero_pedido,
+        claveAcceso,
+        secuencial,
+        customer: finalCustomer,
+        items: [...cart],
+        total: cartTotal
+      });
+
       clearCart();
       setShowConfirmModal(false);
       await loadProductos();
@@ -434,17 +500,88 @@ export const SellerPanel: React.FC = () => {
       {/* Modal Confirmación Venta */}
       {showConfirmModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, animation: 'fadeIn 0.2s ease-out' }}>
-          <div style={{ background: '#fff', padding: '32px', borderRadius: '20px', width: '90%', maxWidth: '400px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', animation: 'slideUp 0.3s ease-out' }}>
+          <div style={{ background: '#fff', padding: '28px', borderRadius: '20px', width: '92%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', animation: 'slideUp 0.3s ease-out' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <div style={{ width: '48px', height: '48px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
                 <ShoppingCart size={24} />
               </div>
-              <h2 style={{ margin: 0, fontSize: '20px', color: '#1e293b' }} className="font-display">Confirmar Venta</h2>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', color: '#1e293b' }} className="font-display">Cobrar Venta POS</h2>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>Total: <strong>${cartTotal.toFixed(2)}</strong> ({cartItemsCount} arts)</span>
+              </div>
             </div>
             
-            <p style={{ color: '#475569', fontSize: '15px', lineHeight: 1.5, marginBottom: '24px' }}>
-              Estás a punto de registrar una venta por <strong>${cartTotal.toFixed(2)}</strong>. Esto descontará automáticamente <strong>{cartItemsCount} artículo(s)</strong> de la bodega.
-            </p>
+            {/* Opción de Facturación personalizada */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontWeight: 700, color: '#1e293b', fontSize: '14px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={requireInvoice} 
+                  onChange={e => setRequireInvoice(e.target.checked)}
+                  style={{ width: '18px', height: '18px', accentColor: '#16a34a', cursor: 'pointer' }}
+                />
+                <UserCheck size={18} style={{ color: requireInvoice ? '#16a34a' : '#64748b' }} />
+                <span>¿El cliente solicita Factura Personalizada?</span>
+              </label>
+
+              {requireInvoice && (
+                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Cédula (10 dígitos) o RUC (13 dígitos) *</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej. 1712345678" 
+                      value={customerPOS.idNumber} 
+                      onChange={e => setCustomerPOS({ ...customerPOS, idNumber: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    />
+                    {customerPOS.idNumber && customerPOS.idNumber !== '9999999999999' && (
+                      <div style={{ fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                        {validarIdentificacion(customerPOS.idNumber).isValid ? (
+                          <span style={{ color: '#16a34a' }}>✅ Cédula/RUC Válido SRI ({validarIdentificacion(customerPOS.idNumber).provincia})</span>
+                        ) : (
+                          <span style={{ color: '#ef4444' }}>❌ {validarIdentificacion(customerPOS.idNumber).error}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Nombre completo o Razón Social *</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej. Juan Pérez" 
+                      value={customerPOS.name} 
+                      onChange={e => setCustomerPOS({ ...customerPOS, name: e.target.value })}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Dirección</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ej. Latacunga" 
+                        value={customerPOS.address} 
+                        onChange={e => setCustomerPOS({ ...customerPOS, address: e.target.value })}
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>Correo Electrónico</label>
+                      <input 
+                        type="email" 
+                        placeholder="ejemplo@correo.com" 
+                        value={customerPOS.email} 
+                        onChange={e => setCustomerPOS({ ...customerPOS, email: e.target.value })}
+                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             
             <div style={{ display: 'flex', gap: '12px' }}>
               <button 
@@ -464,6 +601,60 @@ export const SellerPanel: React.FC = () => {
                 ) : (
                   <>Confirmar Pago</>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Éxito Venta con Opción a Descargar Factura PDF (RIDE) */}
+      {lastSale && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, animation: 'fadeIn 0.2s ease-out' }}>
+          <div style={{ background: '#fff', padding: '32px', borderRadius: '24px', width: '90%', maxWidth: '440px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', animation: 'slideUp 0.3s ease-out' }}>
+            <div style={{ width: '64px', height: '64px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', margin: '0 auto 16px' }}>
+              <CheckCircle size={36} />
+            </div>
+            <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#1e293b' }} className="font-display">¡Venta Registrada!</h2>
+            <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 16px' }}>
+              El comprobante electrónico SRI fue generado y autorizado correctamente.
+            </p>
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', textAlign: 'left', marginBottom: '24px', fontSize: '13px', border: '1px solid #e2e8f0' }}>
+              <div style={{ marginBottom: '6px' }}><strong>Pedido:</strong> {lastSale.numero_pedido}</div>
+              <div style={{ marginBottom: '6px' }}><strong>Cliente:</strong> {lastSale.customer.name} ({lastSale.customer.idNumber})</div>
+              <div><strong>Total Pagado:</strong> <span style={{ color: '#16a34a', fontWeight: 800 }}>${lastSale.total.toFixed(2)}</span></div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  try {
+                    const pdfDoc = generateRIDE(
+                      lastSale.customer,
+                      lastSale.items.map(i => ({
+                        id: String(i.producto_id),
+                        name: i.nombre_producto,
+                        quantity: i.cantidad,
+                        price: i.precio_unitario,
+                        desc: 'Lácteos Leo'
+                      })),
+                      lastSale.total,
+                      lastSale.claveAcceso,
+                      lastSale.secuencial
+                    );
+                    pdfDoc.save(`factura-sri-${lastSale.numero_pedido}.pdf`);
+                  } catch (e: any) {
+                    alert('Error generando PDF RIDE: ' + e.message);
+                  }
+                }}
+                style={{ width: '100%', padding: '14px', background: 'linear-gradient(135deg, #16a34a, #15803d)', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: '800', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(22,163,74,0.3)' }}
+              >
+                <FileDown size={20} />
+                Descargar Factura PDF (RIDE SRI)
+              </button>
+              <button
+                onClick={() => setLastSale(null)}
+                style={{ width: '100%', padding: '12px', background: '#f1f5f9', border: 'none', borderRadius: '12px', color: '#475569', fontWeight: '700', fontSize: '14px', cursor: 'pointer' }}
+              >
+                ✨ Nueva Venta en Mostrador
               </button>
             </div>
           </div>
