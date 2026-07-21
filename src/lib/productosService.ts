@@ -467,11 +467,11 @@ export const cambiarRolUsuario = async (usuarioId: string, nuevoRolId: number): 
 // ============================================================================
 
 export interface FacturaUsuarioDB {
-  id: number;
-  pedido_id: number;
+  id: number | string;
+  pedido_id?: number;
   clave_acceso: string;
-  secuencial: string;
-  xml_contenido: string;
+  secuencial?: string;
+  xml_contenido?: string;
   estado: string;
   created_at: string;
   pedidos?: {
@@ -483,50 +483,90 @@ export interface FacturaUsuarioDB {
 }
 
 /**
- * Obtiene el registro e historial de facturas SRI de un usuario desde Supabase.
+ * Obtiene el registro e historial de facturas SRI de un usuario desde Supabase y localStorage (híbrido).
  */
-export const obtenerFacturasUsuario = async (usuarioId: string): Promise<FacturaUsuarioDB[]> => {
-  // 1. Obtener los pedidos de este usuario
-  const { data: pedidosUsuario, error: pedidosError } = await supabase
-    .from('pedidos')
-    .select('id, numero_pedido, total, metodo_pago, created_at')
-    .eq('usuario_id', usuarioId)
-    .order('created_at', { ascending: false });
+export const obtenerFacturasUsuario = async (usuarioId?: string): Promise<FacturaUsuarioDB[]> => {
+  const facturasCombinadas: FacturaUsuarioDB[] = [];
+  const clavesVistas = new Set<string>();
+  const pedidosVistos = new Set<string>();
 
-  if (pedidosError) {
-    console.error('[ProductosService] Error al obtener pedidos del usuario:', pedidosError.message);
-    throw new Error(`Error Supabase Pedidos: ${pedidosError.message}`);
+  // 1. Intentar obtener de Supabase si el usuario ha iniciado sesión
+  if (usuarioId) {
+    try {
+      const { data: pedidosUsuario, error: pedidosError } = await supabase
+        .from('pedidos')
+        .select('id, numero_pedido, total, metodo_pago, created_at')
+        .eq('usuario_id', usuarioId)
+        .order('created_at', { ascending: false });
+
+      if (!pedidosError && pedidosUsuario && pedidosUsuario.length > 0) {
+        const pedidoIds = pedidosUsuario.map(p => p.id);
+        const { data: comprobantes } = await supabase
+          .from('comprobantes_sri')
+          .select('*')
+          .in('pedido_id', pedidoIds)
+          .order('created_at', { ascending: false });
+
+        if (comprobantes) {
+          comprobantes.forEach(comp => {
+            const pedido = pedidosUsuario.find(p => p.id === comp.pedido_id);
+            const clave = comp.clave_acceso || `LOCAL-${comp.id}`;
+            const numPedido = pedido?.numero_pedido || `FAC-${comp.id}`;
+            if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
+              clavesVistas.add(clave);
+              pedidosVistos.add(numPedido);
+              facturasCombinadas.push({
+                ...comp,
+                pedidos: pedido ? {
+                  numero_pedido: pedido.numero_pedido,
+                  total: Number(pedido.total),
+                  metodo_pago: pedido.metodo_pago || 'card',
+                  created_at: pedido.created_at
+                } : undefined
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[ProductosService] No se pudieron cargar facturas remotas, usando respaldo local:', err);
+    }
   }
 
-  if (!pedidosUsuario || pedidosUsuario.length === 0) {
-    return [];
+  // 2. Cargar historial local (localStorage) como respaldo/complemento
+  try {
+    const rawLocal = localStorage.getItem('lacteos_leo_comprobantes');
+    if (rawLocal) {
+      const locales: Array<any> = JSON.parse(rawLocal);
+      locales.forEach((comp, idx) => {
+        const clave = comp.claveAcceso || `SRI-LOCAL-${idx}-${comp.orderNumber}`;
+        const numPedido = comp.orderNumber || `PED-${idx}`;
+        if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
+          clavesVistas.add(clave);
+          pedidosVistos.add(numPedido);
+          facturasCombinadas.push({
+            id: `local-${comp.id || idx}`,
+            clave_acceso: clave,
+            secuencial: comp.orderNumber?.split('-').pop() || '001',
+            xml_contenido: comp.xmlContenido || '',
+            estado: comp.status || 'completado',
+            created_at: comp.date || new Date().toISOString(),
+            pedidos: {
+              numero_pedido: comp.orderNumber || 'PEDIDO',
+              total: Number(comp.totalAmount || 0),
+              metodo_pago: 'TARJETA / LOCAL',
+              created_at: comp.date || new Date().toISOString()
+            }
+          });
+        }
+      });
+    }
+  } catch (localErr) {
+    console.warn('[ProductosService] Error leyendo comprobantes locales:', localErr);
   }
 
-  const pedidoIds = pedidosUsuario.map(p => p.id);
+  // 3. Ordenar por fecha más reciente
+  facturasCombinadas.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // 2. Obtener los comprobantes SRI asociados a los pedidos del usuario
-  const { data: comprobantes, error: comprobantesError } = await supabase
-    .from('comprobantes_sri')
-    .select('*')
-    .in('pedido_id', pedidoIds)
-    .order('created_at', { ascending: false });
-
-  if (comprobantesError) {
-    console.error('[ProductosService] Error al obtener comprobantes SRI:', comprobantesError.message);
-    throw new Error(`Error Supabase Comprobantes: ${comprobantesError.message}`);
-  }
-
-  // 3. Vincular los datos del pedido a cada comprobante
-  return (comprobantes || []).map(comp => {
-    const pedido = pedidosUsuario.find(p => p.id === comp.pedido_id);
-    return {
-      ...comp,
-      pedidos: pedido ? {
-        numero_pedido: pedido.numero_pedido,
-        total: Number(pedido.total),
-        metodo_pago: pedido.metodo_pago || 'card',
-        created_at: pedido.created_at
-      } : undefined
-    };
-  });
+  return facturasCombinadas;
 };

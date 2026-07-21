@@ -16,20 +16,19 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (isOpen && user?.id) {
+    if (isOpen) {
       cargarFacturas();
     }
   }, [isOpen, user]);
 
   const cargarFacturas = async () => {
-    if (!user?.id) return;
     setLoading(true);
     setError('');
     try {
-      const data = await obtenerFacturasUsuario(user.id);
+      const data = await obtenerFacturasUsuario(user?.id);
       setFacturas(data);
     } catch (err: any) {
-      setError('No se pudieron cargar tus facturas electrónicas desde Supabase.');
+      setError('No se pudieron cargar tus facturas electrónicas.');
     } finally {
       setLoading(false);
     }
@@ -163,7 +162,7 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
                   {fac.xml_contenido && (
                     <button 
                       type="button" 
-                      onClick={() => descargarXML(fac.xml_contenido, fac.pedidos?.numero_pedido || 'sri')}
+                      onClick={() => descargarXML(fac.xml_contenido || '', fac.pedidos?.numero_pedido || 'sri')}
                       style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
                     >
                       <Download size={14} /> Descargar XML SRI

@@ -330,7 +330,7 @@ export const MisFacturas: React.FC = () => {
                   {fac.xml_contenido && (
                     <button
                       type="button"
-                      onClick={() => descargarXML(fac.xml_contenido, fac.pedidos?.numero_pedido || 'sri')}
+                      onClick={() => descargarXML(fac.xml_contenido || '', fac.pedidos?.numero_pedido || 'sri')}
                       style={{ background: '#16a34a', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                       <Download size={16} /> Descargar Archivo XML SRI
