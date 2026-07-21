@@ -149,7 +149,7 @@ export const generateSRIXML = (
 
 export const generateRIDE = (
   customerInfo: CustomerInfo,
-  items: CartItem[],
+  items: Array<{ id?: string | number; name: string; quantity: number; price: number; desc?: string; category?: string }>,
   total: number,
   claveAccesoParam?: string,
   secuencialParam?: string
@@ -172,64 +172,179 @@ export const generateRIDE = (
     secuencial: secActual
   });
 
-  // Header
-  doc.setFontSize(20);
-  doc.text('FACTURA', 150, 20);
-  
-  doc.setFontSize(12);
-  doc.text(EMPRESA.razonSocial, 14, 20);
-  doc.setFontSize(10);
-  doc.text(`RUC: ${EMPRESA.ruc}`, 14, 26);
-  doc.text(`Dir: ${EMPRESA.direccion}`, 14, 32);
-  doc.text(`Tel: ${EMPRESA.telefono}`, 14, 38);
+  // ============================================================================
+  // CAJA IZQUIERDA: DATOS EMISOR (LÁCTEOS LEO)
+  // ============================================================================
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(14, 15, 88, 55, 3, 3, 'FD');
 
-  // Doc Info
-  doc.text(`No. ${numFactura}`, 150, 26);
-  doc.text(`Ambiente: ${EMPRESA.ambiente === '1' ? 'Pruebas' : 'Producción'}`, 150, 32);
-  doc.text('Emisión: Normal', 150, 38);
-  
-  // Clave de acceso (wrap si es necesario)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(22, 163, 74); // Verde Lácteos Leo (#16a34a)
+  doc.text(EMPRESA.razonSocial, 18, 26);
+
+  doc.setFontSize(9.5);
+  doc.setTextColor(15, 23, 42); // Dark slate
+  doc.text(`Nombre Comercial: ${EMPRESA.nombreComercial}`, 18, 33);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`RUC: ${EMPRESA.ruc}`, 18, 39);
+  doc.text(`Dir. Matriz: ${EMPRESA.direccion}`, 18, 45);
+  doc.text(`Teléfono: ${EMPRESA.telefono}`, 18, 51);
+  doc.setFont('helvetica', 'bold');
+  doc.text('OBLIGADO A LLEVAR CONTABILIDAD: SÍ', 18, 59);
+
+  // ============================================================================
+  // CAJA DERECHA: DATOS SRI & CLAVE DE ACCESO
+  // ============================================================================
+  doc.roundedRect(106, 15, 90, 55, 3, 3, 'FD');
+
+  doc.setFontSize(13);
+  doc.setTextColor(15, 23, 42);
+  doc.text('FACTURA ELECTRÓNICA', 110, 25);
+  doc.setFontSize(11);
+  doc.setTextColor(22, 163, 74);
+  doc.text(`No. ${numFactura}`, 110, 32);
+
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text(`Clave de Acceso: ${claveAcceso}`, 14, 48);
-  doc.setFontSize(10);
+  doc.setTextColor(71, 85, 105);
+  doc.text('NÚMERO DE AUTORIZACIÓN SRI:', 110, 38);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text(claveAcceso, 110, 43, { maxWidth: 82 });
 
-  // Customer Info
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.text(`FECHA AUTORIZACIÓN: ${new Date().toLocaleString('es-EC')}`, 110, 52);
+  doc.text(`AMBIENTE: ${EMPRESA.ambiente === '1' ? 'PRUEBAS' : 'PRODUCCIÓN'}`, 110, 57);
+  doc.text('EMISIÓN: NORMAL', 110, 62);
+  doc.text('CLAVE DE ACCESO:', 110, 67);
+
+  // ============================================================================
+  // CAJA CLIENTE (INFO FACTURA)
+  // ============================================================================
+  doc.roundedRect(14, 73, 182, 30, 3, 3, 'FD');
+
   const dateStr = new Date().toLocaleDateString('es-EC');
-  doc.text(`Fecha Emisión: ${dateStr}`, 14, 58);
-  doc.text(`Razón Social: ${customerInfo.name}`, 14, 64);
-  doc.text(`RUC/CI: ${customerInfo.idNumber}`, 14, 70);
-  doc.text(`Dirección: ${customerInfo.address}`, 14, 76);
-  doc.text(`Email: ${customerInfo.email}`, 14, 82);
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('Razón Social / Nombres:', 18, 81);
+  doc.setFont('helvetica', 'normal');
+  doc.text(customerInfo.name || 'Consumidor Final', 60, 81);
 
-  // Table
-  const tableData = items.map(item => [
-    item.id,
-    item.name,
-    item.quantity.toString(),
-    '$' + item.price.toFixed(2),
-    '0%',
-    '$' + (item.price * item.quantity).toFixed(2)
+  doc.setFont('helvetica', 'bold');
+  doc.text('Identificación / RUC / CI:', 18, 87);
+  doc.setFont('helvetica', 'normal');
+  doc.text(customerInfo.idNumber || '9999999999999', 60, 87);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fecha de Emisión:', 130, 81);
+  doc.setFont('helvetica', 'normal');
+  doc.text(dateStr, 165, 81);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Dirección:', 18, 93);
+  doc.setFont('helvetica', 'normal');
+  doc.text(customerInfo.address || 'Ecuador', 60, 93, { maxWidth: 65 });
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Email Comprador:', 130, 87);
+  doc.setFont('helvetica', 'normal');
+  doc.text(customerInfo.email || 'cliente@lacteosleo.com', 165, 87, { maxWidth: 30 });
+
+  // ============================================================================
+  // TABLA DE PRODUCTOS Y DETALLE (AUTOTABLE)
+  // ============================================================================
+  const tableData = (items || []).map(item => [
+    String(item.id || 'LEO-PRD'),
+    item.name || 'Producto Lácteo',
+    String(item.quantity || 1),
+    '$' + Number(item.price || 0).toFixed(2),
+    '$0.00',
+    '$' + (Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)
   ]);
 
   autoTable(doc, {
-    startY: 90,
-    head: [['Código', 'Descripción', 'Cant.', 'P. Unitario', 'IVA', 'Total']],
+    startY: 107,
+    head: [['Código', 'Descripción del Producto', 'Cantidad', 'P. Unitario', 'Descuento', 'Total']],
     body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [41, 128, 50] }
+    headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+    styles: { fontSize: 8.5, textColor: [15, 23, 42], cellPadding: 3.5 },
+    columnStyles: {
+      0: { cellWidth: 25 },
+      1: { cellWidth: 67 },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 23, halign: 'right' },
+      4: { cellWidth: 22, halign: 'right' },
+      5: { cellWidth: 25, halign: 'right' }
+    }
   });
 
-  // Totals
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  doc.text(`Subtotal 0%: $${total.toFixed(2)}`, 140, finalY);
-  doc.text(`Subtotal 15%: $0.00`, 140, finalY + 6);
-  doc.text(`IVA 15%: $0.00`, 140, finalY + 12);
-  doc.setFontSize(12);
-  doc.text(`VALOR TOTAL: $${total.toFixed(2)}`, 140, finalY + 20);
+  // ============================================================================
+  // TOTALES FISCALES Y FORMA DE PAGO
+  // ============================================================================
+  const finalY = (doc as any).lastAutoTable.finalY + 8;
 
-  // Footer SRI
-  doc.setFontSize(7);
-  doc.text('Comprobante electrónico generado por LEO-CONNECT • Sistema autorizado SRI', 14, finalY + 35);
+  // Caja izquierda: Información Adicional y Pagos
+  doc.roundedRect(14, finalY, 100, 48, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(22, 163, 74);
+  doc.text('INFORMACIÓN ADICIONAL & FORMA DE PAGO', 18, finalY + 8);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Correo electrónico: ${customerInfo.email || 'cliente@lacteosleo.com'}`, 18, finalY + 16);
+  doc.text('Forma de Pago:', 18, finalY + 24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('01 - SIN UTILIZACIÓN DEL SISTEMA FINANCIERO / TARJETA', 18, finalY + 30);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Valor Pagado: $${total.toFixed(2)} | Plazo: 0 días`, 18, finalY + 38);
+
+  // Caja derecha: Totales
+  doc.roundedRect(118, finalY, 78, 48, 2, 2, 'FD');
+  doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85);
+
+  doc.text('SUBTOTAL 0%:', 123, finalY + 8);
+  doc.text(`$${total.toFixed(2)}`, 188, finalY + 8, { align: 'right' });
+
+  doc.text('SUBTOTAL 15%:', 123, finalY + 15);
+  doc.text('$0.00', 188, finalY + 15, { align: 'right' });
+
+  doc.text('DESCUENTO:', 123, finalY + 22);
+  doc.text('$0.00', 188, finalY + 22, { align: 'right' });
+
+  doc.text('IVA 15%:', 123, finalY + 29);
+  doc.text('$0.00', 188, finalY + 29, { align: 'right' });
+
+  // Línea divisoria
+  doc.setDrawColor(203, 213, 225);
+  doc.line(123, finalY + 33, 188, finalY + 33);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(22, 163, 74);
+  doc.text('VALOR TOTAL:', 123, finalY + 41);
+  doc.text(`$${total.toFixed(2)}`, 188, finalY + 41, { align: 'right' });
+
+  // Footer Oficial SRI
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    'Comprobante electrónico RIDE generado por el sistema LEO-CONNECT S.A. • Validez tributaria verificable en www.sri.gob.ec con la Clave de Acceso.',
+    105,
+    Math.min(285, finalY + 62),
+    { align: 'center' }
+  );
 
   return doc;
 };

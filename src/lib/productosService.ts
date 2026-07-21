@@ -480,6 +480,8 @@ export interface FacturaUsuarioDB {
     metodo_pago: string;
     created_at: string;
   };
+  items?: Array<{ id: string | number; name: string; quantity: number; price: number; desc?: string; image?: string; category?: string }>;
+  cliente_info?: { name: string; idNumber: string; address: string; email: string };
 }
 
 /**
@@ -506,14 +508,14 @@ export const obtenerFacturasUsuario = async (
       // El administrador o el vendedor pueden ver la totalidad de los pedidos y facturas de los clientes
       const { data, error } = await supabase
         .from('pedidos')
-        .select('id, numero_pedido, total, metodo_pago, created_at, usuario_id')
+        .select('*, detalle_pedidos(*), usuarios(nombre, email, cedula)')
         .order('created_at', { ascending: false });
       if (!error) pedidosUsuario = data;
     } else if (usuarioId || userEmail) {
       // El usuario normal SOLO puede ver lo que ese usuario compró
       let query = supabase
         .from('pedidos')
-        .select('id, numero_pedido, total, metodo_pago, created_at, usuario_id');
+        .select('*, detalle_pedidos(*), usuarios(nombre, email, cedula)');
 
       if (usuarioId && userEmail) {
         query = query.or(`usuario_id.eq.${usuarioId},email_cliente.ilike.${userEmail}`);
@@ -543,6 +545,23 @@ export const obtenerFacturasUsuario = async (
           if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
             clavesVistas.add(clave);
             pedidosVistos.add(numPedido);
+
+            const itemsMapeados = (pedido?.detalle_pedidos || []).map((det: any) => ({
+              id: det.producto_id || '1',
+              name: det.nombre_producto || 'Producto Lácteo',
+              quantity: det.cantidad || 1,
+              price: Number(det.precio_unitario || 0),
+              desc: 'Producto fresco Lácteos Leo'
+            }));
+
+            const usuarioData = pedido?.usuarios || {};
+            const clienteInfo = {
+              name: usuarioData.nombre || pedido?.nombre_cliente || 'Cliente Lácteos Leo',
+              idNumber: usuarioData.cedula || pedido?.cedula_cliente || '9999999999999',
+              address: pedido?.direccion_envio || 'Latacunga, Cotopaxi',
+              email: usuarioData.email || pedido?.email_cliente || 'cliente@lacteosleo.com'
+            };
+
             facturasCombinadas.push({
               ...comp,
               pedidos: pedido ? {
@@ -550,7 +569,9 @@ export const obtenerFacturasUsuario = async (
                 total: Number(pedido.total),
                 metodo_pago: pedido.metodo_pago || 'card',
                 created_at: pedido.created_at
-              } : undefined
+              } : undefined,
+              items: itemsMapeados.length > 0 ? itemsMapeados : undefined,
+              cliente_info: clienteInfo
             });
           }
         });
@@ -583,6 +604,21 @@ export const obtenerFacturasUsuario = async (
         if (!clavesVistas.has(clave) && !pedidosVistos.has(numPedido)) {
           clavesVistas.add(clave);
           pedidosVistos.add(numPedido);
+
+          const itemsLocales = Array.isArray(comp.items) ? comp.items.map((it: any) => ({
+            id: it.id || '1',
+            name: it.name || 'Queso/Yogur Lácteos Leo',
+            quantity: Number(it.quantity || 1),
+            price: Number(it.price || comp.totalAmount || 10)
+          })) : [];
+
+          const clienteInfoLocal = {
+            name: comp.customerName || 'Cliente Lácteos Leo',
+            idNumber: comp.customerIdNumber || comp.idNumber || comp.cedula || '9999999999999',
+            address: comp.address || 'Ecuador',
+            email: comp.customerEmail || comp.email || 'cliente@lacteosleo.com'
+          };
+
           facturasCombinadas.push({
             id: `local-${comp.id || idx}`,
             clave_acceso: clave,
@@ -593,9 +629,11 @@ export const obtenerFacturasUsuario = async (
             pedidos: {
               numero_pedido: comp.orderNumber || 'PEDIDO',
               total: Number(comp.totalAmount || 0),
-              metodo_pago: 'TARJETA / LOCAL',
+              metodo_pago: comp.paymentMethod || 'card',
               created_at: comp.date || new Date().toISOString()
-            }
+            },
+            items: itemsLocales.length > 0 ? itemsLocales : undefined,
+            cliente_info: clienteInfoLocal
           });
         }
       });

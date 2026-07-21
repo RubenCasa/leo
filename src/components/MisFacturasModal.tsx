@@ -64,9 +64,11 @@ export const MisFacturasModal: React.FC<MisFacturasModalProps> = ({ isOpen, onCl
 
   const descargarPDF = (fac: FacturaUsuarioDB) => {
     const numPedido = fac.pedidos?.numero_pedido || 'SRI-' + (fac.secuencial || fac.id);
+    const cliente = fac.cliente_info || { name: user?.name || 'Cliente Lácteos Leo', idNumber: user?.cedula || '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' };
+    const itemsParaPDF = fac.items && fac.items.length > 0 ? fac.items : [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }];
     const doc = generateRIDE(
-      { name: user?.name || 'Cliente Lácteos Leo', idNumber: '9999999999999', address: 'Ecuador', email: user?.email || 'cliente@lacteosleo.com' },
-      [{ id: '1', name: `Pedido #${numPedido}`, price: fac.pedidos?.total || 10, quantity: 1, desc: 'Producto Lácteos Leo', image: '', category: 'lácteos' }],
+      cliente,
+      itemsParaPDF,
       fac.pedidos?.total || 10,
       fac.clave_acceso,
       fac.secuencial || '001'
