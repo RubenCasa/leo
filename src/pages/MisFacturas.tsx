@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { obtenerFacturasUsuario, type FacturaUsuarioDB } from '../lib/productosService';
 import { supabase } from '../lib/supabase';
-import { validarIdentificacion, type CedulaValidationResult } from '../utils/cedulaValidator';
 import { FileText, Download, CheckCircle2, Loader2, AlertCircle, Copy, ArrowLeft, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -11,8 +10,6 @@ export const MisFacturas: React.FC = () => {
   const [facturas, setFacturas] = useState<FacturaUsuarioDB[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [cedulaInput, setCedulaInput] = useState('');
-  const [cedulaResult, setCedulaResult] = useState<CedulaValidationResult | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -127,110 +124,6 @@ export const MisFacturas: React.FC = () => {
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#16a34a', display: 'inline-block', animation: 'pulse 2s infinite' }}></span>
             SUPABASE REALTIME EN VIVO
           </div>
-        </div>
-
-        {/* Validador Oficial de Cédula / RUC SRI & Registro Civil */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', marginBottom: '32px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-            <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '10px', borderRadius: '12px' }}>
-              <ShieldCheck size={24} />
-            </div>
-            <div>
-              <h3 className="font-display" style={{ margin: 0, fontSize: '19px', color: '#0f172a' }}>
-                Verificación Oficial de Identidad (Cédula / RUC Ecuador)
-              </h3>
-              <span style={{ fontSize: '13.5px', color: '#64748b' }}>
-                Comprueba la autenticidad en tiempo real con el algoritmo oficial Módulo 10 del Registro Civil y SRI antes de consultar facturas tributarias.
-              </span>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '18px', alignItems: 'center' }}>
-            <input
-              type="text"
-              placeholder="Ej: 1712345678 (Cédula) o 1712345678001 (RUC)..."
-              value={cedulaInput}
-              onChange={(e) => {
-                const val = e.target.value.replace(/\D/g, '').slice(0, 13);
-                setCedulaInput(val);
-                if (val.length === 10 || val.length === 13) {
-                  setCedulaResult(validarIdentificacion(val));
-                } else {
-                  setCedulaResult(null);
-                }
-              }}
-              style={{
-                flex: '1 1 280px',
-                padding: '14px 18px',
-                borderRadius: '12px',
-                border: `2px solid ${cedulaResult ? (cedulaResult.isValid ? '#22c55e' : '#ef4444') : '#cbd5e1'}`,
-                fontSize: '15px',
-                fontWeight: 600,
-                outline: 'none',
-                color: '#0f172a',
-                fontFamily: 'monospace'
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setCedulaResult(validarIdentificacion(cedulaInput))}
-              style={{
-                background: '#0f172a',
-                color: '#fff',
-                border: 'none',
-                padding: '14px 26px',
-                borderRadius: '12px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s'
-              }}
-            >
-              Verificar Autenticidad SRI
-            </button>
-          </div>
-
-          {/* Resultado del algoritmo Módulo 10 */}
-          {cedulaResult && (
-            <div style={{
-              marginTop: '18px',
-              padding: '16px 20px',
-              borderRadius: '12px',
-              background: cedulaResult.isValid ? '#f0fdf4' : '#fef2f2',
-              border: `1px solid ${cedulaResult.isValid ? '#bbf7d0' : '#fecaca'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '14px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {cedulaResult.isValid ? (
-                  <CheckCircle2 size={26} style={{ color: '#16a34a' }} />
-                ) : (
-                  <AlertCircle size={26} style={{ color: '#dc2626' }} />
-                )}
-                <div>
-                  <strong style={{ display: 'block', fontSize: '14.5px', color: cedulaResult.isValid ? '#14532d' : '#991b1b', marginBottom: '2px' }}>
-                    {cedulaResult.isValid ? 'DOCUMENTO DE IDENTIDAD 100% VÁLIDO EN ECUADOR' : 'ERROR EN VALIDACIÓN DEL DOCUMENTO'}
-                  </strong>
-                  <span style={{ fontSize: '13.5px', color: cedulaResult.isValid ? '#166534' : '#b91c1c' }}>
-                    {cedulaResult.isValid
-                      ? `Provincia de Emisión detectada: ${cedulaResult.provincia} • Algoritmo oficial Módulo 10 verificado.`
-                      : cedulaResult.error}
-                  </span>
-                </div>
-              </div>
-              {cedulaResult.isValid && (
-                <span style={{ fontSize: '11px', fontWeight: 800, background: '#dcfce7', color: '#15803d', padding: '6px 12px', borderRadius: '20px', border: '1px solid #86efac' }}>
-                  CERTIFICADO REGISTRO CIVIL / SRI
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Content Section */}
